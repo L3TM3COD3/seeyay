@@ -23,8 +23,7 @@ def get_ai_service():
     """Get Vertex AI service instance"""
     settings = get_settings_instance()
     return get_vertex_service(
-        project_id=settings.gcp_project_id,
-        location=settings.gcp_location
+        project_id=settings.gcp_project_id
     )
 
 

@@ -1,8 +1,8 @@
 # Telegram Bot dependencies
 aiogram==3.4.1
 
-# Google Cloud - updated for Gemini 2.5 support
-google-cloud-aiplatform>=1.50.0
+# Google Cloud - updated for Gemini 3 and global endpoint support
+google-cloud-aiplatform>=1.79.0
 google-cloud-firestore>=2.14.0
 google-cloud-secret-manager>=2.18.1
 

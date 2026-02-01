@@ -17,44 +17,62 @@ logger = logging.getLogger(__name__)
 class VertexAIService:
     """Сервис для работы с Vertex AI Gemini Image Generation"""
     
-    # Модели для генерации изображений
-    # Docs: https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/2-5-flash-image
-    # Docs: https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/3-pro-image
+    # Модели и их регионы
+    # Normal mode: regional endpoint (europe-west4)
+    # PRO mode: global endpoint (required for gemini-3-pro-image-preview)
     MODELS = {
-        "normal": "gemini-2.5-flash-image",      # Gemini 2.5 Flash Image (GA)
-        "pro": "gemini-3-pro-image-preview"      # Gemini 3 Pro Image (Preview)
+        "normal": {
+            "name": "gemini-2.5-flash-image",
+            "location": "europe-west4"  # Regional endpoint
+        },
+        "pro": {
+            "name": "gemini-3-pro-image-preview",
+            "location": "global"  # Global-only model
+        }
     }
     
     # Максимальное количество retry при ошибках
     MAX_RETRIES = 3
     RETRY_DELAY = 2  # секунды
     
-    def __init__(self, project_id: str, location: str = "europe-west4"):
+    def __init__(self, project_id: str):
         """
         Инициализация Vertex AI с ADC (Application Default Credentials)
         
         Args:
             project_id: ID проекта в Google Cloud
-            location: Регион (europe-west4 для Нидерландов)
         """
         self.project_id = project_id
-        self.location = location
-        
-        # Инициализация Vertex AI с ADC
-        # В Cloud Run credentials подхватываются автоматически из service account
-        vertexai.init(project=project_id, location=location)
         
         # Кэш моделей для переиспользования
         self._models = {}
         
-        logger.info(f"VertexAIService initialized for project {project_id} in {location}")
+        # Отслеживание инициализированных locations
+        self._initialized_locations = set()
+        
+        logger.info(f"VertexAIService initialized for project {project_id}")
+    
+    def _ensure_location_initialized(self, location: str):
+        """Убедиться что Vertex AI инициализирован для нужного location"""
+        if location not in self._initialized_locations:
+            vertexai.init(project=self.project_id, location=location)
+            self._initialized_locations.add(location)
+            logger.info(f"Initialized Vertex AI for location: {location}")
     
     def _get_model(self, mode: str) -> GenerativeModel:
-        """Получить модель по режиму (с кэшированием)"""
+        """Получить модель по режиму с правильным location"""
         if mode not in self._models:
-            model_name = self.MODELS.get(mode, self.MODELS["normal"])
+            model_config = self.MODELS.get(mode, self.MODELS["normal"])
+            model_name = model_config["name"]
+            location = model_config["location"]
+            
+            # Инициализируем Vertex AI для нужного location
+            self._ensure_location_initialized(location)
+            
+            # Создаём модель
             self._models[mode] = GenerativeModel(model_name)
-            logger.info(f"Loaded model {model_name} for mode '{mode}'")
+            logger.info(f"Loaded model {model_name} for mode '{mode}' in location '{location}'")
+        
         return self._models[mode]
     
     def _get_generation_config(self) -> GenerationConfig:
@@ -220,11 +238,11 @@ class VertexAIService:
 _vertex_service: Optional[VertexAIService] = None
 
 
-def get_vertex_service(project_id: str, location: str = "europe-west4") -> VertexAIService:
+def get_vertex_service(project_id: str) -> VertexAIService:
     """Получить инстанс Vertex AI сервиса (синглтон)"""
     global _vertex_service
     if _vertex_service is None:
-        _vertex_service = VertexAIService(project_id, location)
+        _vertex_service = VertexAIService(project_id)
     return _vertex_service
 
 
