@@ -19,16 +19,14 @@ async def handle_webapp_data(message: Message, state: FSMContext):
         
         style_id = data.get("style_id")
         style_name = data.get("style_name")
-        photo_count = data.get("photo_count", 1)
         mode = data.get("mode", "normal")  # normal или pro
         
-        logger.info(f"Received webapp data: style={style_id}, count={photo_count}, mode={mode}")
+        logger.info(f"Received webapp data: style={style_id}, mode={mode}")
         
         # Сохраняем данные в состояние
         await state.update_data(
             style_id=style_id,
             style_name=style_name,
-            photo_count=photo_count,
             mode=mode
         )
         
@@ -36,15 +34,14 @@ async def handle_webapp_data(message: Message, state: FSMContext):
         await state.set_state(UserState.awaiting_photo)
         
         # Формируем сообщение о стоимости
-        cost = photo_count if mode == "normal" else photo_count * 2
+        cost = 2 if mode == "pro" else 1
         mode_text = "PRO" if mode == "pro" else "Обычный"
         
         await message.answer(
             f"✨ Отлично! Ты выбрал стиль: <b>{style_name}</b>\n\n"
             f"📊 Настройки:\n"
-            f"• Количество фото: {photo_count}\n"
             f"• Режим: {mode_text}\n"
-            f"• Стоимость: {cost} генераций\n\n"
+            f"• Стоимость: {cost} ⚡\n\n"
             f"📷 Теперь отправь мне свою фотографию, и я создам для тебя потрясающий результат!",
             reply_markup=get_photo_request_keyboard(),
             parse_mode="HTML"

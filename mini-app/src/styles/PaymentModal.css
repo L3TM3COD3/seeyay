@@ -1,0 +1,51 @@
+.payment-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.payment-modal {
+  background: var(--color-bg);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 90%;
+  width: 400px;
+  position: relative;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.payment-modal__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: var(--color-text);
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.payment-modal__close:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.payment-modal__content {
+  text-align: center;
+  color: var(--color-text);
+}

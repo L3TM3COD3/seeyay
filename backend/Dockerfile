@@ -17,7 +17,8 @@ RUN pip install --no-cache-dir \
     google-cloud-firestore==2.14.0 \
     google-cloud-secret-manager==2.18.1 \
     httpx==0.26.0 \
-    python-multipart==0.0.9
+    python-multipart==0.0.9 \
+    aiohttp==3.9.3
 
 # Copy backend code (only the backend folder from repo root)
 COPY backend/ ./backend/

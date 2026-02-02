@@ -5,7 +5,7 @@ substitutions:
   _REGION: europe-west4
   _BOT_SERVICE: seeyay-bot
   _API_SERVICE: seeyay-api
-  _MINIAPP_SERVICE: seeyay-mini-app
+  _MINIAPP_SERVICE: seeyay-miniapp
 
 steps:
   # ==================== Build Bot Service ====================
@@ -92,7 +92,7 @@ steps:
       - '--max-instances'
       - '3'
       - '--set-env-vars'
-      - 'GCP_PROJECT_ID=$PROJECT_ID,GCP_LOCATION=${_REGION},MINI_APP_URL=https://seeyay-mini-app-445810320877.${_REGION}.run.app,WEBHOOK_URL=https://${_BOT_SERVICE}-445810320877.${_REGION}.run.app'
+      - 'GCP_PROJECT_ID=$PROJECT_ID,GCP_LOCATION=${_REGION},MINI_APP_URL=https://seeyay-miniapp-445810320877.${_REGION}.run.app,WEBHOOK_URL=https://${_BOT_SERVICE}-445810320877.${_REGION}.run.app'
       - '--set-secrets'
       - 'BOT_TOKEN=telegram-bot-token:latest'
       - '--allow-unauthenticated'
@@ -120,6 +120,8 @@ steps:
       - '10'
       - '--set-env-vars'
       - 'GCP_PROJECT_ID=$PROJECT_ID'
+      - '--set-secrets'
+      - 'CLOUDPAYMENTS_PUBLIC_ID=cloudpayments-public-id:latest,CLOUDPAYMENTS_API_SECRET=cloudpayments-api-secret:latest'
       - '--allow-unauthenticated'
     waitFor: ['push-api']
 

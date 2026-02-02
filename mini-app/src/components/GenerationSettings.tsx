@@ -6,18 +6,16 @@ interface GenerationSettingsProps {
   style: Style;
   userBalance: number;
   onBack: () => void;
-  onSubmit: (settings: { photoCount: number; mode: 'normal' | 'pro' }) => void;
+  onSubmit: (settings: { mode: 'normal' | 'pro' }) => void;
 }
 
-const photoCountOptions = [1, 3, 5, 10];
-
 export function GenerationSettings({ style, userBalance, onBack, onSubmit }: GenerationSettingsProps) {
-  const [photoCount, setPhotoCount] = useState(1);
   const [mode, setMode] = useState<'normal' | 'pro'>('normal');
   const { showBackButton, hideBackButton, hapticFeedback } = useTelegram();
 
-  // Рассчитываем стоимость
-  const cost = mode === 'pro' ? photoCount * 2 : photoCount;
+  // Рассчитываем стоимость генерации: normal = 1⚡, pro = 2⚡
+  // Всегда генерируется только 1 фото
+  const cost = mode === 'pro' ? 2 : 1;
   const canAfford = userBalance >= cost;
 
   useEffect(() => {
@@ -31,7 +29,7 @@ export function GenerationSettings({ style, userBalance, onBack, onSubmit }: Gen
       return;
     }
     hapticFeedback('success');
-    onSubmit({ photoCount, mode });
+    onSubmit({ mode });
   };
 
   return (
@@ -45,24 +43,6 @@ export function GenerationSettings({ style, userBalance, onBack, onSubmit }: Gen
       <h2 className="settings-screen__title settings-screen__title--left">
         {style.name}
       </h2>
-
-      <div className="settings-section">
-        <span className="settings-section__label">Количество фото</span>
-        <div className="settings-options">
-          {photoCountOptions.map((count) => (
-            <button
-              key={count}
-              className={`settings-option ${photoCount === count ? 'active' : ''}`}
-              onClick={() => {
-                setPhotoCount(count);
-                hapticFeedback('light');
-              }}
-            >
-              {count}
-            </button>
-          ))}
-        </div>
-      </div>
 
       <div className="settings-section">
         <span className="settings-section__label">Режим</span>

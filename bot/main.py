@@ -26,17 +26,32 @@ async def health_check(request):
 async def webhook_handler(request):
     """Обработчик webhook запросов от Telegram"""
     global bot, dp, bot_initialized
+    # region agent log
+    import json;open(r'c:\PetProjects\Seeyay.ai\.cursor\debug.log','a',encoding='utf-8').write(json.dumps({'location':'bot/main.py:27','message':'webhook_handler called','data':{'bot_initialized':bot_initialized},'timestamp':__import__('time').time()*1000,'sessionId':'debug-session','runId':'run1','hypothesisId':'E'})+'\n')
+    # endregion
     
     if not bot_initialized:
+        # region agent log
+        import json;open(r'c:\PetProjects\Seeyay.ai\.cursor\debug.log','a',encoding='utf-8').write(json.dumps({'location':'bot/main.py:31','message':'bot NOT initialized - returning 503','data':{},'timestamp':__import__('time').time()*1000,'sessionId':'debug-session','runId':'run1','hypothesisId':'E'})+'\n')
+        # endregion
         return web.Response(text="Bot not initialized", status=503)
     
     try:
         from aiogram.types import Update
         data = await request.json()
+        # region agent log
+        import json;open(r'c:\PetProjects\Seeyay.ai\.cursor\debug.log','a',encoding='utf-8').write(json.dumps({'location':'bot/main.py:37','message':'received update data','data':{'has_message':('message' in data),'has_callback':('callback_query' in data)},'timestamp':__import__('time').time()*1000,'sessionId':'debug-session','runId':'run1','hypothesisId':'E'})+'\n')
+        # endregion
         update = Update(**data)
         await dp.feed_update(bot=bot, update=update)
+        # region agent log
+        import json;open(r'c:\PetProjects\Seeyay.ai\.cursor\debug.log','a',encoding='utf-8').write(json.dumps({'location':'bot/main.py:40','message':'update processed successfully','data':{},'timestamp':__import__('time').time()*1000,'sessionId':'debug-session','runId':'run1','hypothesisId':'E'})+'\n')
+        # endregion
         return web.Response(text="OK", status=200)
     except Exception as e:
+        # region agent log
+        import json;open(r'c:\PetProjects\Seeyay.ai\.cursor\debug.log','a',encoding='utf-8').write(json.dumps({'location':'bot/main.py:43','message':'EXCEPTION in webhook_handler','data':{'error':str(e),'error_type':type(e).__name__},'timestamp':__import__('time').time()*1000,'sessionId':'debug-session','runId':'run1','hypothesisId':'E'})+'\n')
+        # endregion
         logger.error(f"Error processing update: {e}")
         return web.Response(text="Error", status=500)
 

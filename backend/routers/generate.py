@@ -25,7 +25,6 @@ class StyleSelectionRequest(BaseModel):
     telegram_id: int
     style_id: str
     style_name: str
-    photo_count: int = 1
     mode: str = "normal"  # normal or pro
 
 
@@ -51,20 +50,18 @@ async def select_style_endpoint(request: StyleSelectionRequest):
             telegram_id=request.telegram_id,
             style_id=request.style_id,
             style_name=request.style_name,
-            photo_count=request.photo_count,
             mode=request.mode
         )
         
         # Формируем сообщение
-        cost = request.photo_count if request.mode == "normal" else request.photo_count * 2
-        mode_text = "PRO" if request.mode == "pro" else "Обычный"
+        cost = 1 if request.mode == "normal" else 2
+        mode_text = "✨ PRO" if request.mode == "pro" else "Обычный"
         
         message_text = (
             f"✨ Отлично! Ты выбрал стиль: <b>{request.style_name}</b>\n\n"
             f"📊 Настройки:\n"
-            f"• Количество фото: {request.photo_count}\n"
             f"• Режим: {mode_text}\n"
-            f"• Стоимость: {cost} генераций\n\n"
+            f"• Стоимость: {cost} ⚡\n\n"
             f"📷 Теперь отправь мне свою фотографию, и я создам для тебя потрясающий результат!"
         )
         
@@ -102,7 +99,6 @@ async def select_style_endpoint(request: StyleSelectionRequest):
 class GenerationRequest(BaseModel):
     telegram_id: int
     style_id: str
-    photo_count: int = 1
     mode: str = "normal"  # normal or pro
 
 
@@ -127,8 +123,8 @@ async def create_generation_endpoint(request: GenerationRequest):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Рассчитываем стоимость
-    cost = request.photo_count if request.mode == "normal" else request.photo_count * 2
+    # Рассчитываем стоимость (1 фото: normal = 1⚡, pro = 2⚡)
+    cost = 1 if request.mode == "normal" else 2
     
     # Проверяем баланс
     if user.get("balance", 0) < cost:
@@ -146,8 +142,7 @@ async def create_generation_endpoint(request: GenerationRequest):
     generation = await create_generation(
         telegram_id=request.telegram_id,
         style_id=request.style_id,
-        mode=request.mode,
-        photo_count=request.photo_count
+        mode=request.mode
     )
     
     return GenerationResponse(

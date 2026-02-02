@@ -23,7 +23,7 @@ export interface User {
 
 export interface GenerationPack {
   id: string;
-  generations: number;
+  energy: number;
   price: number;
   currency: string;
 }
@@ -151,7 +151,6 @@ export interface StyleSelection {
   telegram_id: number;
   style_id: string;
   style_name: string;
-  photo_count: number;
   mode: 'normal' | 'pro';
 }
 
@@ -180,9 +179,9 @@ export async function fetchPacks(): Promise<GenerationPack[]> {
   } catch (error) {
     console.error('Error fetching packs:', error);
     return [
-      { id: 'pack_10', generations: 10, price: 99, currency: 'RUB' },
-      { id: 'pack_30', generations: 30, price: 249, currency: 'RUB' },
-      { id: 'pack_100', generations: 100, price: 699, currency: 'RUB' },
+      { id: 'pack_10', energy: 10, price: 99, currency: 'RUB' },
+      { id: 'pack_30', energy: 30, price: 249, currency: 'RUB' },
+      { id: 'pack_100', energy: 100, price: 699, currency: 'RUB' },
     ];
   }
 }

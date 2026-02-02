@@ -109,7 +109,7 @@ function App() {
     setScreen('settings');
   }, []);
 
-  const handleSubmitGeneration = useCallback(async (settings: { photoCount: number; mode: 'normal' | 'pro' }) => {
+  const handleSubmitGeneration = useCallback(async (settings: { mode: 'normal' | 'pro' }) => {
     if (!selectedStyle) {
       console.error('No style selected');
       return;
@@ -128,7 +128,6 @@ function App() {
       telegram_id: telegramId,
       style_id: selectedStyle.id,
       style_name: selectedStyle.name,
-      photo_count: settings.photoCount,
       mode: settings.mode
     };
     

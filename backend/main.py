@@ -4,6 +4,8 @@ from fastapi.staticfiles import StaticFiles
 import os
 
 from backend.routers import styles_router, users_router, payments_router, generate_router
+from backend.routers.webhooks import router as webhooks_router
+from backend.routers.cron import router as cron_router
 
 
 app = FastAPI(
@@ -26,6 +28,8 @@ app.include_router(styles_router)
 app.include_router(users_router)
 app.include_router(payments_router)
 app.include_router(generate_router)
+app.include_router(webhooks_router)
+app.include_router(cron_router)
 
 # Статические файлы для изображений стилей
 if os.path.exists("static"):

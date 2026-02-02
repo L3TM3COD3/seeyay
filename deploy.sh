@@ -8,7 +8,7 @@ PROJECT_ID="${GCP_PROJECT_ID:-your-project-id}"
 REGION="${GCP_REGION:-europe-west4}"
 BOT_SERVICE="seeyay-bot"
 API_SERVICE="seeyay-api"
-MINIAPP_SERVICE="seeyay-mini-app"
+MINIAPP_SERVICE="seeyay-miniapp"
 
 echo "🚀 Deploying СИЯЙ AI to Google Cloud Run"
 echo "Project: $PROJECT_ID"
