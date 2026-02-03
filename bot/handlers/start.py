@@ -1,10 +1,11 @@
 from aiogram import Router, F
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 
 from bot.keyboards import get_start_keyboard
 from bot.states import UserState
+from bot.config import get_settings
 
 router = Router()
 
@@ -21,9 +22,6 @@ WELCOME_MESSAGE = """👋 Привет! Я бот СИЯЙ AI для созда�
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
     """Обработчик команды /start"""
-    # region agent log
-    import json;open(r'c:\PetProjects\Seeyay.ai\.cursor\debug.log','a',encoding='utf-8').write(json.dumps({'location':'bot/handlers/start.py:23','message':'cmd_start called','data':{'user_id':message.from_user.id if message.from_user else None,'chat_id':message.chat.id if message.chat else None},'timestamp':__import__('time').time()*1000,'sessionId':'debug-session','runId':'run1','hypothesisId':'C'})+'\n')
-    # endregion
     # Сбрасываем состояние
     await state.clear()
     await state.set_state(UserState.idle)
@@ -33,6 +31,14 @@ async def cmd_start(message: Message, state: FSMContext):
         text=WELCOME_MESSAGE,
         reply_markup=get_start_keyboard()
     )
-    # region agent log
-    import json;open(r'c:\PetProjects\Seeyay.ai\.cursor\debug.log','a',encoding='utf-8').write(json.dumps({'location':'bot/handlers/start.py:33','message':'cmd_start completed','data':{},'timestamp':__import__('time').time()*1000,'sessionId':'debug-session','runId':'run1','hypothesisId':'C'})+'\n')
-    # endregion
+
+
+@router.callback_query(F.data == "open_miniapp_dev")
+async def callback_open_miniapp_dev(callback: CallbackQuery):
+    """Обработчик для dev кнопки Mini App (когда нет HTTPS)"""
+    settings = get_settings()
+    await callback.answer()
+    await callback.message.answer(
+        f"🔧 Dev Mode: Mini App доступен по адресу:\n{settings.mini_app_url}\n\n"
+        "Откройте этот URL в браузере для тестирования."
+    )
