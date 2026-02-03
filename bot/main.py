@@ -56,6 +56,16 @@ async def webhook_handler(request):
         return web.Response(text="Error", status=500)
 
 
+async def start_polling():
+    """Запуск polling для локальной разработки"""
+    global bot, dp
+    logger.info("Starting polling...")
+    try:
+        await dp.start_polling(bot, allowed_updates=["message", "callback_query"])
+    except Exception as e:
+        logger.error(f"Polling error: {e}")
+
+
 async def init_bot(app):
     """Инициализация бота при запуске приложения"""
     global bot, dp, bot_initialized
@@ -87,13 +97,20 @@ async def init_bot(app):
         dp.include_router(webapp_router)
         dp.include_router(photo_router)
         
-        # Устанавливаем webhook
+        # Устанавливаем webhook или запускаем polling
         webhook_url = os.environ.get("WEBHOOK_URL")
-        if webhook_url:
+        use_polling = os.environ.get("USE_POLLING", "").lower() in ("true", "1", "yes")
+        
+        if webhook_url and not use_polling:
             await bot.set_webhook(f"{webhook_url}/webhook")
             logger.info(f"Webhook set to {webhook_url}/webhook")
         else:
-            logger.warning("WEBHOOK_URL not set, webhook not configured")
+            # Удаляем webhook для использования polling
+            await bot.delete_webhook(drop_pending_updates=True)
+            logger.info("Webhook deleted, will use polling mode")
+            
+            # Запускаем polling в фоне
+            asyncio.create_task(start_polling())
         
         bot_initialized = True
         logger.info("Bot initialized successfully!")
