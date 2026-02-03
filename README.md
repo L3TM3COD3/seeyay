@@ -215,6 +215,12 @@ CLOUDPAYMENTS_PUBLIC_ID=test_api_xxx
 CLOUDPAYMENTS_API_SECRET=test_secret_xxx
 ```
 
+> **💡 Важно:** Проект использует Vertex AI с ADC (Application Default Credentials). Настройте один раз:
+> ```bash
+> gcloud auth application-default login
+> gcloud config set project your-gcp-project-id
+> ```
+
 ### 3. Аутентификация GCP
 
 ```bash

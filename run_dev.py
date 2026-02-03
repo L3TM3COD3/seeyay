@@ -18,10 +18,10 @@ def main():
         print("Please create .env file with the following variables:")
         print("""
 BOT_TOKEN=your_telegram_bot_token
-GOOGLE_AI_API_KEY=your_google_ai_api_key
+GCP_PROJECT_ID=your_gcp_project_id
+GCP_LOCATION=europe-west4
 BACKEND_URL=http://localhost:8000
 MINI_APP_URL=https://your-domain.com
-DATABASE_URL=sqlite+aiosqlite:///./seeyay.db
         """)
         return
     
