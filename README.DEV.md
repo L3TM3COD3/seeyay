@@ -62,7 +62,10 @@ BACKEND_URL=http://localhost:8000
 MINI_APP_URL=http://localhost:3000
 CLOUDPAYMENTS_PUBLIC_ID=test_api_xxx
 CLOUDPAYMENTS_API_SECRET=test_secret_xxx
+USE_POLLING=true
 ```
+
+> **Важно:** `USE_POLLING=true` включает polling режим для локальной разработки. Без этого бот не будет реагировать на команды!
 
 ### 4. Запуск
 
