@@ -12,15 +12,20 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
+# Fix Windows console encoding
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+
 
 def main():
     print("=" * 60)
-    print("🔧 СИЯЙ AI - Development Environment")
+    print("[DEV] SEEYAY AI - Development Environment")
     print("=" * 60)
     
     env_file = Path(".env.dev")
     if not env_file.exists():
-        print("\n❌ .env.dev file not found!")
+        print("\n[ERROR] .env.dev file not found!")
         print("\nCreate .env.dev with:")
         print("-" * 40)
         print("""
@@ -33,7 +38,7 @@ CLOUDPAYMENTS_PUBLIC_ID=test_api_xxx
 CLOUDPAYMENTS_API_SECRET=test_secret_xxx
         """)
         print("-" * 40)
-        print("\n💡 Don't forget to:")
+        print("\n[TIP] Don't forget to:")
         print("   1. Create a new bot via @BotFather for development")
         print("   2. Create GCP project 'seeyay-ai-dev'")
         print("   3. Run: gcloud config set project seeyay-ai-dev")
@@ -44,24 +49,32 @@ CLOUDPAYMENTS_API_SECRET=test_secret_xxx
     
     project_id = os.getenv('GCP_PROJECT_ID')
     backend_url = os.getenv('BACKEND_URL', 'http://localhost:8000')
+    bot_token = os.getenv('BOT_TOKEN', '')
     
-    print(f"\n✅ Loaded dev configuration")
+    print(f"\n[OK] Loaded dev configuration")
     print(f"   GCP Project: {project_id}")
     print(f"   Backend: {backend_url}")
     print(f"   Mini App: {os.getenv('MINI_APP_URL', 'http://localhost:3000')}")
+    print(f"   Bot token: ...{bot_token[-10:] if len(bot_token) > 10 else '(not set)'}")
     
     # Verify it's not production project
     if project_id == "seeyay-ai-tg-bot":
-        print("\n⚠️  WARNING: You're using PRODUCTION project!")
+        print("\n[WARNING] You're using PRODUCTION project!")
         print("   Change GCP_PROJECT_ID in .env.dev to 'seeyay-ai-dev'")
         confirm = input("   Continue anyway? (yes/no): ")
         if confirm.lower() != "yes":
             print("   Aborted.")
             return 1
     
-    print("\n🚀 Starting services...")
+    # Check bot token
+    if not bot_token or bot_token == "your_dev_bot_token":
+        print("\n[ERROR] BOT_TOKEN not set in .env.dev!")
+        print("   Get a token from @BotFather and add it to .env.dev")
+        return 1
+    
+    print("\n[START] Starting services...")
     print("=" * 60)
-    print("\n💡 Press Ctrl+C to stop\n")
+    print("\n[TIP] Press Ctrl+C to stop\n")
     
     try:
         # Create environment copy
@@ -81,9 +94,9 @@ CLOUDPAYMENTS_API_SECRET=test_secret_xxx
             env=dev_env
         )
         
-        print("✅ Backend started on http://localhost:8000")
-        print("✅ Bot started")
-        print("\n📱 To start Mini App: cd mini-app && npm run dev")
+        print("[OK] Backend started on http://localhost:8000")
+        print("[OK] Bot started")
+        print("\n[TIP] To start Mini App: cd mini-app && npm run dev")
         
         # Wait for processes
         backend_process.wait()
@@ -91,16 +104,16 @@ CLOUDPAYMENTS_API_SECRET=test_secret_xxx
         
     except KeyboardInterrupt:
         print("\n\n" + "=" * 60)
-        print("👋 Shutting down dev environment...")
+        print("[STOP] Shutting down dev environment...")
         print("=" * 60)
         backend_process.terminate()
         bot_process.terminate()
         backend_process.wait()
         bot_process.wait()
-        print("✅ Services stopped")
+        print("[OK] Services stopped")
         return 0
     except Exception as e:
-        print(f"\n❌ Error: {e}")
+        print(f"\n[ERROR] {e}")
         return 1
 
 
