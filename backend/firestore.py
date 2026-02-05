@@ -50,7 +50,14 @@ async def create_user(telegram_id: int, username: Optional[str] = None) -> Dict[
         "username": username,
         "plan": "free",
         "balance": 3,  # Free tier starts with 3 generations
-        "created_at": datetime.utcnow()
+        "created_at": datetime.utcnow(),
+        "successful_generations": 0,
+        "is_new_user": True,
+        "starter_pack_purchased": False,
+        "m9_shown": False,
+        "m7_1_sent": False,
+        "m7_2_sent": False,
+        "m7_3_sent": False,
     }
     
     await doc_ref.set(user_data)

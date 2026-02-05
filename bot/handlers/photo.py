@@ -1,11 +1,31 @@
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, InputMediaPhoto, BufferedInputFile
+from aiogram.types import Message, CallbackQuery, BufferedInputFile
 from aiogram.fsm.context import FSMContext
 import aiohttp
 import logging
 
 from bot.states import UserState
-from bot.keyboards import get_start_keyboard, get_generation_complete_keyboard
+from bot.keyboards import (
+    kb_result_m71,
+    kb_result_m72,
+    kb_result_m73,
+    kb_result_m8,
+    kb_starter_pack,
+    kb_insufficient,
+    kb_config_normal,
+    kb_config_pro
+)
+from bot.messages import (
+    m6_generating,
+    m7_1_result_first,
+    m7_2_result_second,
+    m7_3_result_third,
+    m8_result_regular,
+    m9_starter_pack,
+    m11_insufficient_energy,
+    m4_1_config_normal,
+    m4_2_config_pro
+)
 from bot.services.vertex_ai import get_vertex_service
 from bot.config import get_settings
 from bot.firestore import (
@@ -14,6 +34,8 @@ from bot.firestore import (
     deduct_energy,
     update_user_balance,
     get_user,
+    increment_successful_generations,
+    set_user_flag
 )
 
 router = Router()
@@ -45,15 +67,12 @@ async def handle_photo(message: Message, state: FSMContext):
     mode = data.get("mode", "normal")
     
     if not style_id:
-        await message.answer(
-            "❌ Не выбран стиль. Пожалуйста, сначала выберите стиль.",
-            reply_markup=get_start_keyboard()
-        )
+        await message.answer("❌ Не выбран стиль. Пожалуйста, сначала выберите стиль.")
         await state.set_state(UserState.idle)
         return
     
-    # Рассчитываем стоимость (1 энергия для normal, 2 для pro)
-    cost = 2 if mode == "pro" else 1
+    # Рассчитываем стоимость: PRO = 6 энергии, normal = 1
+    cost = 6 if mode == "pro" else 1
     
     # Проверяем баланс пользователя
     user = await get_user(telegram_id)
@@ -63,14 +82,29 @@ async def handle_photo(message: Message, state: FSMContext):
         return
     
     current_balance = user.get("balance", 0)
+    successful_generations = user.get("successful_generations", 0)
+    is_new_user = user.get("is_new_user", True)
+    m9_shown = user.get("m9_shown", False)
+    
+    # Проверка недостаточного баланса
     if current_balance < cost:
-        await message.answer(
-            f"❌ Недостаточно энергии!\n\n"
-            f"Для генерации нужно: {cost} ⚡\n"
-            f"Ваш баланс: {current_balance} ⚡\n\n"
-            f"Пополните баланс в разделе 'Энергия'",
-            reply_markup=get_start_keyboard()
-        )
+        # m9 или m11
+        if is_new_user and successful_generations >= 1 and not m9_shown:
+            # Отправляем m9: стартер-пак
+            await message.answer(
+                text=m9_starter_pack(current_balance, cost),
+                reply_markup=kb_starter_pack(),
+                parse_mode="HTML"
+            )
+            await set_user_flag(telegram_id, "m9_shown", True)
+        else:
+            # Отправляем m11: обычное сообщение о недостатке энергии
+            await message.answer(
+                text=m11_insufficient_energy(current_balance, cost),
+                reply_markup=kb_insufficient(),
+                parse_mode="HTML"
+            )
+        
         await state.set_state(UserState.idle)
         return
     
@@ -79,8 +113,7 @@ async def handle_photo(message: Message, state: FSMContext):
     if not deduct_result:
         await message.answer(
             f"❌ Не удалось списать энергию. Возможно, баланс изменился.\n"
-            f"Попробуйте еще раз.",
-            reply_markup=get_start_keyboard()
+            f"Попробуйте еще раз."
         )
         await state.set_state(UserState.idle)
         return
@@ -91,16 +124,11 @@ async def handle_photo(message: Message, state: FSMContext):
     # Переводим в состояние генерации
     await state.set_state(UserState.generating)
     
-    # Формируем сообщение о генерации
-    mode_text = "PRO" if mode == "pro" else "обычном"
-    status_text = (
-        f"⏳ Генерирую фото в стиле «{style_name}»...\n"
-        f"Режим: {mode_text}\n"
-        f"Списано: {cost} ⚡\n"
-        f"Баланс: {new_balance} ⚡\n\n"
-        f"⏱ Это может занять до минуты."
+    # Отправляем m6: "Генерируем..."
+    status_message = await message.answer(
+        text=m6_generating(),
+        parse_mode="HTML"
     )
-    status_message = await message.answer(status_text)
     
     try:
         settings = get_settings_instance()
@@ -121,19 +149,11 @@ async def handle_photo(message: Message, state: FSMContext):
         
         logger.info(f"Downloaded photo: {len(photo_bytes)} bytes")
         
-        # Обновляем статус
-        await status_message.edit_text(
-            f"🎨 Генерирую {photo_count} фото в стиле «{style_name}»...\n"
-            f"Режим: {mode_text}\n\n"
-            f"⏱ Обработка изображения..."
-        )
-        
-        # Генерируем изображения через Vertex AI
+        # Генерируем изображение через Vertex AI
         vertex_service = get_ai_service()
-        results = await vertex_service.generate_batch(
+        result_bytes = await vertex_service.generate_single(
             photo_bytes=photo_bytes,
             style_id=style_id,
-            count=photo_count,
             mode=mode
         )
         
@@ -144,18 +164,74 @@ async def handle_photo(message: Message, state: FSMContext):
             pass
         
         # Отправляем результат
-        if results and len(results) > 0:
+        if result_bytes:
             logger.info(f"Generated image successfully for user {telegram_id}")
             
+            # Увеличиваем счётчик успешных генераций
+            new_count = await increment_successful_generations(telegram_id)
+            if new_count is None:
+                new_count = successful_generations + 1  # fallback
+            
+            logger.info(f"User {telegram_id} now has {new_count} successful generations")
+            
+            # Отправляем фото с правильным сообщением
             input_file = BufferedInputFile(
-                results[0], 
+                result_bytes,
                 filename="result.jpg"
             )
-            await message.answer_photo(
-                photo=input_file,
-                caption=f"✨ Готово! Фото в стиле «{style_name}»\n\n💰 Баланс: {new_balance} ⚡",
-                reply_markup=get_generation_complete_keyboard()
-            )
+            
+            # Определяем какое сообщение и клавиатуру отправить
+            if new_count == 1 and not user.get("m7_1_sent", False):
+                # m7.1: первая генерация
+                text = m7_1_result_first(style_name, new_balance)
+                # Отправляем фото, получаем file_id
+                sent_msg = await message.answer_photo(
+                    photo=input_file,
+                    caption=text,
+                    parse_mode="HTML"
+                )
+                file_id = sent_msg.photo[-1].file_id
+                keyboard = kb_result_m71(style_id, file_id)
+                await sent_msg.edit_caption(caption=text, reply_markup=keyboard, parse_mode="HTML")
+                await set_user_flag(telegram_id, "m7_1_sent", True)
+                
+            elif new_count == 2 and not user.get("m7_2_sent", False):
+                # m7.2: вторая генерация
+                text = m7_2_result_second(style_name, new_balance)
+                sent_msg = await message.answer_photo(
+                    photo=input_file,
+                    caption=text,
+                    parse_mode="HTML"
+                )
+                file_id = sent_msg.photo[-1].file_id
+                keyboard = kb_result_m72(style_id, file_id)
+                await sent_msg.edit_caption(caption=text, reply_markup=keyboard, parse_mode="HTML")
+                await set_user_flag(telegram_id, "m7_2_sent", True)
+                
+            elif new_count == 3 and not user.get("m7_3_sent", False):
+                # m7.3: третья генерация
+                text = m7_3_result_third(style_name, new_balance)
+                sent_msg = await message.answer_photo(
+                    photo=input_file,
+                    caption=text,
+                    parse_mode="HTML"
+                )
+                file_id = sent_msg.photo[-1].file_id
+                keyboard = kb_result_m73(style_id, file_id)
+                await sent_msg.edit_caption(caption=text, reply_markup=keyboard, parse_mode="HTML")
+                await set_user_flag(telegram_id, "m7_3_sent", True)
+                
+            else:
+                # m8: обычный результат
+                text = m8_result_regular(style_name, new_balance)
+                sent_msg = await message.answer_photo(
+                    photo=input_file,
+                    caption=text,
+                    parse_mode="HTML"
+                )
+                file_id = sent_msg.photo[-1].file_id
+                keyboard = kb_result_m8(style_id, file_id)
+                await sent_msg.edit_caption(caption=text, reply_markup=keyboard, parse_mode="HTML")
         else:
             logger.warning(f"No results from generation for user {telegram_id}")
             
@@ -166,8 +242,7 @@ async def handle_photo(message: Message, state: FSMContext):
             await message.answer(
                 "❌ К сожалению, не удалось сгенерировать изображение.\n"
                 f"Энергия возвращена: +{cost} ⚡\n\n"
-                "Попробуйте ещё раз или выберите другой стиль.",
-                reply_markup=get_start_keyboard()
+                "Попробуйте ещё раз или выберите другой стиль."
             )
         
     except Exception as e:
@@ -186,15 +261,13 @@ async def handle_photo(message: Message, state: FSMContext):
             await message.answer(
                 f"❌ Произошла ошибка при генерации.\n"
                 f"Энергия возвращена: +{cost} ⚡\n\n"
-                "Попробуйте ещё раз позже.",
-                reply_markup=get_start_keyboard()
+                "Попробуйте ещё раз позже."
             )
         except Exception as refund_error:
             logger.error(f"Error refunding energy: {refund_error}")
             await message.answer(
                 f"❌ Произошла ошибка при генерации.\n"
-                "Попробуйте ещё раз позже.",
-                reply_markup=get_start_keyboard()
+                "Попробуйте ещё раз позже."
             )
     
     # Возвращаем в idle состояние
@@ -224,8 +297,8 @@ async def handle_photo_with_pending_selection(message: Message, state: FSMContex
     if not pending:
         # Нет pending selection - просим выбрать стиль
         await message.answer(
-            "📷 Чтобы создать фото в стиле, сначала выберите стиль!",
-            reply_markup=get_start_keyboard()
+            "📷 Чтобы создать фото в стиле, сначала выберите стиль!\n"
+            "Используйте /start или /menu"
         )
         return
     
@@ -239,166 +312,85 @@ async def handle_photo_with_pending_selection(message: Message, state: FSMContex
     # Очищаем pending selection
     await clear_pending_style_selection(telegram_id)
     
-    # Рассчитываем стоимость (1 энергия для normal, 2 для pro)
-    cost = 2 if mode == "pro" else 1
+    # Устанавливаем данные в FSM и перенаправляем на основной обработчик
+    await state.update_data(
+        style_id=style_id,
+        style_name=style_name,
+        mode=mode
+    )
+    await state.set_state(UserState.awaiting_photo)
     
-    # Проверяем баланс пользователя
+    # Вызываем основной обработчик фото
+    await handle_photo(message, state)
+
+
+@router.callback_query(F.data.startswith("repeat:"))
+async def handle_repeat(callback: CallbackQuery, state: FSMContext):
+    """Обработчик кнопки "Повторить" - возвращает в режим выбора фото"""
+    await callback.answer()
+    
+    telegram_id = callback.from_user.id
+    style_id = callback.data.split(":", 1)[1]
+    
+    # Получаем стиль из styles_data
+    from bot.styles_data import get_style_by_id
+    style = get_style_by_id(style_id)
+    if not style:
+        await callback.message.answer("❌ Шаблон не найден")
+        return
+    
+    style_name = style["name"]
+    
+    # Получаем пользователя для проверки кол-ва генераций
     user = await get_user(telegram_id)
     if not user:
-        await message.answer("❌ Пользователь не найден. Используйте /start для регистрации.")
+        await callback.message.answer("❌ Пользователь не найден. Используйте /start")
         return
     
-    current_balance = user.get("balance", 0)
-    if current_balance < cost:
-        await message.answer(
-            f"❌ Недостаточно энергии!\n\n"
-            f"Для генерации нужно: {cost} ⚡\n"
-            f"Ваш баланс: {current_balance} ⚡\n\n"
-            f"Пополните баланс в разделе 'Энергия'",
-            reply_markup=get_start_keyboard()
-        )
-        return
+    successful_generations = user.get("successful_generations", 0)
     
-    # Списываем энергию ДО генерации (атомарная операция)
-    deduct_result = await deduct_energy(telegram_id, cost)
-    if not deduct_result:
-        await message.answer(
-            f"❌ Не удалось списать энергию. Возможно, баланс изменился.\n"
-            f"Попробуйте еще раз.",
-            reply_markup=get_start_keyboard()
-        )
-        return
-    
-    new_balance = deduct_result.get("balance", 0)
-    logger.info(f"Energy deducted for user {telegram_id}: {cost} ⚡, new balance: {new_balance}")
-    
-    # Переводим в состояние генерации
-    await state.set_state(UserState.generating)
-    
-    # Формируем сообщение о генерации
-    mode_text = "PRO" if mode == "pro" else "обычном"
-    status_text = (
-        f"⏳ Генерирую фото в стиле «{style_name}»...\n"
-        f"Режим: {mode_text}\n"
-        f"Списано: {cost} ⚡\n"
-        f"Баланс: {new_balance} ⚡\n\n"
-        f"⏱ Это может занять до минуты."
+    # Сохраняем в FSM
+    await state.update_data(
+        style_id=style_id,
+        style_name=style_name,
+        mode="normal"
     )
-    status_message = await message.answer(status_text)
+    await state.set_state(UserState.awaiting_photo)
+    
+    # Отправляем конфигурацию (m4.1 для тех у кого >= 1 генерации)
+    if successful_generations >= 1:
+        text = m4_1_config_normal(style_name, 1)
+        keyboard = kb_config_normal(style_id)
+    else:
+        # На всякий случай, хотя "Повторить" доступна только после генерации
+        from bot.messages import m3_config_onboarding
+        from bot.keyboards import kb_config_onboarding
+        text = m3_config_onboarding(style_name, 1)
+        keyboard = kb_config_onboarding(style_id)
+    
+    await callback.message.answer(
+        text=text,
+        reply_markup=keyboard,
+        parse_mode="HTML"
+    )
+    
+    logger.info(f"User {telegram_id} repeated generation for {style_id}")
+
+
+@router.callback_query(F.data.startswith("download:"))
+async def handle_download(callback: CallbackQuery):
+    """Обработчик кнопки "Скачать файл" - отправляет фото как документ"""
+    await callback.answer("Отправляю файл в полном качестве...")
+    
+    file_id = callback.data.split(":", 1)[1]
     
     try:
-        settings = get_settings_instance()
-        
-        # Получаем файл фото (берём самое большое качество)
-        photo = message.photo[-1]
-        file = await message.bot.get_file(photo.file_id)
-        file_path = file.file_path
-        
-        # Скачиваем фото
-        file_url = f"https://api.telegram.org/file/bot{settings.bot_token}/{file_path}"
-        
-        async with aiohttp.ClientSession() as session:
-            async with session.get(file_url) as response:
-                if response.status != 200:
-                    raise Exception(f"Failed to download photo: {response.status}")
-                photo_bytes = await response.read()
-        
-        logger.info(f"Downloaded photo: {len(photo_bytes)} bytes")
-        
-        # Обновляем статус
-        await status_message.edit_text(
-            f"🎨 Генерирую фото в стиле «{style_name}»...\n"
-            f"Режим: {mode_text}\n\n"
-            f"⏱ Обработка изображения..."
+        # Отправляем фото как документ для полного качества
+        await callback.message.answer_document(
+            document=file_id,
+            caption="📥 Ваше фото в максимальном качестве"
         )
-        
-        # Генерируем изображение через Vertex AI (только 1 фото)
-        vertex_service = get_ai_service()
-        results = await vertex_service.generate_batch(
-            photo_bytes=photo_bytes,
-            style_id=style_id,
-            count=1,
-            mode=mode
-        )
-        
-        logger.info(f"Generation completed: {len(results) if results else 0} images")
-        
-        # Удаляем статусное сообщение
-        try:
-            await status_message.delete()
-        except Exception:
-            pass
-        
-        # Отправляем результат
-        if results and len(results) > 0:
-            logger.info(f"Generated image successfully for user {telegram_id}")
-            
-            input_file = BufferedInputFile(
-                results[0], 
-                filename="result.jpg"
-            )
-            await message.answer_photo(
-                photo=input_file,
-                caption=f"✨ Готово! Фото в стиле «{style_name}»\n\n💰 Баланс: {new_balance} ⚡",
-                reply_markup=get_generation_complete_keyboard()
-            )
-        else:
-            logger.warning(f"No results from generation for user {telegram_id}")
-            
-            # Возвращаем энергию при ошибке генерации
-            await update_user_balance(telegram_id, cost)
-            logger.info(f"Energy refunded for user {telegram_id}: {cost} ⚡")
-            
-            await message.answer(
-                "❌ К сожалению, не удалось сгенерировать изображение.\n"
-                f"Энергия возвращена: +{cost} ⚡\n\n"
-                "Попробуйте ещё раз или выберите другой стиль.",
-                reply_markup=get_start_keyboard()
-            )
-        
+        logger.info(f"File {file_id} sent as document")
     except Exception as e:
-        logger.error(f"Error in photo handler (pending): {e}", exc_info=True)
-        
-        try:
-            await status_message.delete()
-        except Exception:
-            pass
-        
-        # Возвращаем энергию при ошибке
-        try:
-            await update_user_balance(telegram_id, cost)
-            logger.info(f"Energy refunded after error for user {telegram_id}: {cost} ⚡")
-            
-            await message.answer(
-                f"❌ Произошла ошибка при генерации.\n"
-                f"Энергия возвращена: +{cost} ⚡\n\n"
-                "Попробуйте ещё раз позже.",
-                reply_markup=get_start_keyboard()
-            )
-        except Exception as refund_error:
-            logger.error(f"Error refunding energy: {refund_error}")
-            await message.answer(
-                f"❌ Произошла ошибка при генерации.\n"
-                "Попробуйте ещё раз позже.",
-                reply_markup=get_start_keyboard()
-            )
-    
-    # Возвращаем в idle состояние
-    await state.set_state(UserState.idle)
-
-
-@router.callback_query(F.data == "cancel")
-async def handle_cancel(callback: CallbackQuery, state: FSMContext):
-    """Обработчик кнопки отмены"""
-    await state.clear()
-    await state.set_state(UserState.idle)
-    
-    await callback.message.edit_text(
-        "❌ Генерация отменена.\n\n"
-        "Чтобы начать заново, нажмите кнопку ниже.",
-    )
-    await callback.message.answer(
-        "Выберите стиль для новой генерации:",
-        reply_markup=get_start_keyboard()
-    )
-    await callback.answer()
+        logger.error(f"Error sending file as document: {e}")
+        await callback.message.answer("❌ Не удалось отправить файл")

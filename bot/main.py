@@ -63,7 +63,13 @@ async def init_bot(app):
         from aiogram.client.default import DefaultBotProperties
         from aiogram.enums import ParseMode
         from bot.config import get_settings
-        from bot.handlers import start_router, photo_router, webapp_router
+        from bot.handlers import (
+            start_router,
+            template_selection_router,
+            energy_router,
+            webapp_router,
+            photo_router
+        )
         
         settings = get_settings()
         logger.info(f"Got settings, token present: {bool(settings.bot_token)}")
@@ -77,8 +83,10 @@ async def init_bot(app):
         # Создаём диспетчер с хранилищем состояний
         dp = Dispatcher(storage=MemoryStorage())
         
-        # Регистрируем роутеры
+        # Регистрируем роутеры (порядок важен!)
         dp.include_router(start_router)
+        dp.include_router(template_selection_router)
+        dp.include_router(energy_router)
         dp.include_router(webapp_router)
         dp.include_router(photo_router)
         

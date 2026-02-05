@@ -57,6 +57,24 @@ Soft overcast daylight in outdoor frames; warm practical interior light in car f
 CONSTRAINTS (NO):
 No face change, no different person, no extra limbs/fingers, no stylization (no illustration), no text, no watermark, no logos.""",
         "system_instruction": DEFAULT_SYSTEM_INSTRUCTION,
+    },
+    {
+        "id": "placeholder_3",
+        "name": "Скоро...",
+        "category": "new",
+        "image": "/images/styles/placeholder.jpg",
+        "placeholder": True,
+        "prompt": "",
+        "system_instruction": "",
+    },
+    {
+        "id": "placeholder_4",
+        "name": "Скоро...",
+        "category": "new",
+        "image": "/images/styles/placeholder.jpg",
+        "placeholder": True,
+        "prompt": "",
+        "system_instruction": "",
     }
 ]
 

@@ -31,6 +31,8 @@ GENERATION_PACKS = [
     {"id": "pack_50", "energy": 50, "price": 790, "currency": "RUB", "badge": "популярно"},
     {"id": "pack_120", "energy": 120, "price": 1290, "currency": "RUB", "badge": "выгодно"},
     {"id": "pack_300", "energy": 300, "price": 2490, "currency": "RUB"},
+    {"id": "pack_starter", "energy": 100, "price": 990, "currency": "RUB", "badge": "стартер-пак", "one_time": True},
+    {"id": "pack_downsell", "energy": 8, "price": 169, "currency": "RUB", "badge": "пробный", "one_time": True},
 ]
 
 
