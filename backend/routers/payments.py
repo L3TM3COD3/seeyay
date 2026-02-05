@@ -27,9 +27,10 @@ logger = logging.getLogger(__name__)
 
 # Пакеты генераций для покупки
 GENERATION_PACKS = [
-    {"id": "pack_10", "energy": 10, "price": 99, "currency": "RUB"},
-    {"id": "pack_30", "energy": 30, "price": 249, "currency": "RUB"},
-    {"id": "pack_100", "energy": 100, "price": 699, "currency": "RUB"},
+    {"id": "pack_10", "energy": 10, "price": 249, "currency": "RUB"},
+    {"id": "pack_50", "energy": 50, "price": 790, "currency": "RUB", "badge": "популярно"},
+    {"id": "pack_120", "energy": 120, "price": 1290, "currency": "RUB", "badge": "выгодно"},
+    {"id": "pack_300", "energy": 300, "price": 2490, "currency": "RUB"},
 ]
 
 

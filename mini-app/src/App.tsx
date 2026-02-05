@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Header, GenerationSettings, Gallery, Tabs, Profile, BottomNavigation } from './components';
-import { EnergyPage } from './pages/EnergyPage';
+// import { EnergyPage } from './pages/EnergyPage'; // Не используется, логика покупки теперь в Profile
 import { Style, Category, User, fetchUser, fetchStyles } from './api/client';
 import { useTelegram } from './hooks/useTelegram';
 
-type TabId = 'photo-ideas' | 'profile' | 'energy';
+type TabId = 'photo-ideas' | 'profile';
 type Screen = TabId | 'settings';
 
 function App() {
@@ -79,8 +79,8 @@ function App() {
 
   const handleEnergyClick = useCallback(() => {
     hapticFeedback('light');
-    setActiveTab('energy');
-    setScreen('energy');
+    setActiveTab('profile');
+    setScreen('profile');
   }, [hapticFeedback]);
 
   const handleLogoClick = useCallback(() => {
@@ -96,18 +96,6 @@ function App() {
     setSelectedStyle(null);
   }, [hapticFeedback, activeTab]);
 
-  const handleRepeatGeneration = useCallback((prompt: string, styleName: string) => {
-    // Находим стиль по имени или создаём временный объект
-    const tempStyle: Style = {
-      id: 'repeat',
-      name: styleName,
-      category: 'effect',
-      image: '',
-      prompt: prompt
-    };
-    setSelectedStyle(tempStyle);
-    setScreen('settings');
-  }, []);
 
   const handleSubmitGeneration = useCallback(async (settings: { mode: 'normal' | 'pro' }) => {
     if (!selectedStyle) {
@@ -192,13 +180,7 @@ function App() {
           <Profile 
             user={user}
             onEnergyClick={handleEnergyClick}
-            onRepeat={handleRepeatGeneration}
           />
-        );
-
-      case 'energy':
-        return (
-          <EnergyPage currentPlan={user.plan} />
         );
 
       case 'photo-ideas':

@@ -97,8 +97,10 @@ Seeyay.ai/
 │   └── ...
 │
 ├── cloudbuild.yaml            # CI/CD конфигурация
+├── cloudbuild-dev.yaml        # CI/CD для dev окружения
 ├── deploy.sh                  # Скрипт деплоя
 ├── CLOUDPAYMENTS_SETUP.md     # Инструкции по настройке платежей
+├── TROUBLESHOOTING.md         # Решение типичных проблем
 └── requirements.txt       
 ```
 
@@ -153,23 +155,126 @@ gcloud firestore databases create --location=europe-west4
 
 ## 🚀 Деплой
 
-### Автоматический деплой через Cloud Build
+### Production деплой
 
 ```bash
-# Установите переменные окружения
-export GCP_PROJECT_ID=your-project-id
-export GCP_REGION=europe-west4
-
-# Запустите деплой
-./deploy.sh
+# Деплой на production (seeyay-ai)
+gcloud builds submit . --config=cloudbuild.yaml --project=seeyay-ai
 ```
 
-### Ручной деплой
+### Development деплой
+
+Для разработки используется отдельный GCP проект `seeyay-ai-dev` с полной изоляцией:
+- Отдельная Firestore база данных
+- Отдельный Telegram бот (@siay_ai_dev_bot)
+- Отдельные Cloud Run сервисы
+- Отдельные секреты в Secret Manager
 
 ```bash
-# Сборка и пуш образов
-gcloud builds submit . --config=cloudbuild.yaml
+# Деплой на dev (seeyay-ai-dev)
+gcloud builds submit . --config=cloudbuild-dev.yaml --project=seeyay-ai-dev
 ```
+
+**Важно:** `cloudbuild-dev.yaml` автоматически передаёт `--build-arg VITE_API_URL` 
+для Mini App, чтобы она обращалась к dev API, а не к production.
+
+### Альтернатива: ручной деплой
+
+```bash
+# Production
+gcloud builds submit . --config=cloudbuild.yaml --project=seeyay-ai
+
+# Development  
+gcloud builds submit . --config=cloudbuild-dev.yaml --project=seeyay-ai-dev
+```
+
+## 🧪 Development Environment (Dev)
+
+Проект поддерживает **полную изоляцию** между production и development окружениями.
+
+### Два GCP проекта
+
+| Параметр | Production | Development |
+|----------|-----------|-------------|
+| **GCP Project** | `seeyay-ai` | `seeyay-ai-dev` |
+| **Project Number** | `445810320877` | `269162169877` |
+| **Telegram Bot** | @siay_ai_bot | @siay_ai_dev_bot |
+| **Firestore** | Отдельная БД | Отдельная БД |
+| **Cloud Build** | `cloudbuild.yaml` | `cloudbuild-dev.yaml` |
+
+### Настройка dev окружения
+
+1. **Создайте dev проект** (если ещё не создан):
+```bash
+gcloud projects create seeyay-ai-dev --name="СИЯЙ AI Dev"
+```
+
+2. **Включите API**:
+```bash
+gcloud services enable \
+    cloudbuild.googleapis.com \
+    run.googleapis.com \
+    secretmanager.googleapis.com \
+    firestore.googleapis.com \
+    aiplatform.googleapis.com \
+    --project=seeyay-ai-dev
+```
+
+3. **Создайте dev бота** у @BotFather и сохраните токен
+
+4. **Создайте секреты**:
+```bash
+echo -n "DEV_BOT_TOKEN" | gcloud secrets create telegram-bot-token \
+    --data-file=- --replication-policy="automatic" --project=seeyay-ai-dev
+```
+
+5. **Выдайте права Cloud Run**:
+```bash
+PROJECT_NUMBER=269162169877
+
+# Firestore
+gcloud projects add-iam-policy-binding seeyay-ai-dev \
+    --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+    --role="roles/datastore.user"
+
+# Secret Manager  
+gcloud projects add-iam-policy-binding seeyay-ai-dev \
+    --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+    --role="roles/secretmanager.secretAccessor"
+
+# Vertex AI
+gcloud projects add-iam-policy-binding seeyay-ai-dev \
+    --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+    --role="roles/aiplatform.user"
+```
+
+### Workflow разработки
+
+```bash
+# 1. Работаем в dev ветке
+git checkout dev
+
+# 2. Вносим изменения, тестируем локально
+python run_dev.py
+
+# 3. Деплоим на dev окружение
+gcloud builds submit . --config=cloudbuild-dev.yaml --project=seeyay-ai-dev
+
+# 4. Тестируем в dev боте (@siay_ai_dev_bot)
+
+# 5. Когда всё ОК — мержим в main и деплоим на prod
+git checkout main
+git merge dev
+gcloud builds submit . --config=cloudbuild.yaml --project=seeyay-ai
+```
+
+### Безопасность кода
+
+Код **универсальный** и работает в обоих окружениях:
+- URL'ы берутся из environment variables
+- Dockerfile Mini App имеет **production URL по умолчанию**
+- `cloudbuild-dev.yaml` переопределяет URL через `--build-arg`
+- Деплой на неправильный проект **невозможен** — проект указывается явно
 
 ## 💳 Настройка CloudPayments
 
@@ -474,6 +579,8 @@ gcloud logging read "resource.type=cloud_scheduler_job" \
 
 ## 🐛 Troubleshooting
 
+Для подробного руководства по решению проблем см. **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)**
+
 ### Webhook'и не приходят
 - Проверьте URL в настройках CloudPayments
 - Убедитесь, что домен доступен по HTTPS
@@ -488,8 +595,16 @@ gcloud logging read "resource.type=cloud_scheduler_job" \
 - Убедитесь, что Cloud Run API доступен
 - Проверьте авторизацию
 
+### Проблемы при деплое dev окружения
+- См. детальный checklist в [TROUBLESHOOTING.md](TROUBLESHOOTING.md#-checklist-для-настройки-нового-dev-окружения)
+
 ## 📚 Полезные ссылки
 
+### Документация проекта
+- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Решение типичных проблем
+- [CLOUDPAYMENTS_SETUP.md](CLOUDPAYMENTS_SETUP.md) - Настройка платежей
+
+### Внешние ресурсы
 - [CloudPayments Docs](https://developers.cloudpayments.ru/)
 - [Telegram Bot API](https://core.telegram.org/bots/api)
 - [Telegram Mini Apps](https://core.telegram.org/bots/webapps)

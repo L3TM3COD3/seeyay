@@ -249,6 +249,7 @@ async def deduct_energy(telegram_id: int, amount: int) -> Optional[Dict[str, Any
 async def give_daily_energy(telegram_id: int) -> Optional[Dict[str, Any]]:
     """
     Начислить ежедневную энергию пользователю на free плане (1 энергия)
+    Начисляется только если баланс = 0
     """
     db = get_db()
     doc_ref = db.collection("users").document(str(telegram_id))
@@ -264,10 +265,14 @@ async def give_daily_energy(telegram_id: int) -> Optional[Dict[str, Any]]:
     if plan != "free":
         return None
     
-    # Обновляем баланс и время последней выдачи
+    # Проверяем баланс - начисляем только если 0
     current_balance = user_data.get("balance", 0)
+    if current_balance > 0:
+        return None  # Не начисляем если есть энергия
+    
+    # Обновляем баланс и время последней выдачи
     await doc_ref.update({
-        "balance": current_balance + 1,
+        "balance": 1,
         "daily_energy_given_at": datetime.utcnow()
     })
     
@@ -280,11 +285,12 @@ async def give_daily_energy(telegram_id: int) -> Optional[Dict[str, Any]]:
 async def get_free_plan_users_for_daily_energy() -> List[Dict[str, Any]]:
     """
     Получить пользователей на free плане для начисления ежедневной энергии
+    Только пользователи с balance = 0
     """
     db = get_db()
     
-    # Получаем всех пользователей на free плане
-    query = db.collection("users").where("plan", "==", "free")
+    # Получаем всех пользователей на free плане с нулевым балансом
+    query = db.collection("users").where("plan", "==", "free").where("balance", "==", 0)
     docs = await query.get()
     
     users = []

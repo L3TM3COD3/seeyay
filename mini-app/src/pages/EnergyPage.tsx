@@ -57,9 +57,10 @@ const tariffs: Tariff[] = [
 
 // Начальные данные для мгновенного отображения
 const defaultPacks: GenerationPack[] = [
-  { id: 'pack_10', energy: 10, price: 99, currency: 'RUB' },
-  { id: 'pack_30', energy: 30, price: 249, currency: 'RUB' },
-  { id: 'pack_100', energy: 100, price: 699, currency: 'RUB' },
+  { id: 'pack_10', energy: 10, price: 249, currency: 'RUB' },
+  { id: 'pack_50', energy: 50, price: 790, currency: 'RUB' },
+  { id: 'pack_120', energy: 120, price: 1290, currency: 'RUB' },
+  { id: 'pack_300', energy: 300, price: 2490, currency: 'RUB' },
 ];
 
 export function EnergyPage({ currentPlan }: EnergyPageProps) {
@@ -229,83 +230,90 @@ export function EnergyPage({ currentPlan }: EnergyPageProps) {
           Разовая покупка энергии без подписки
         </p>
         <div className="packs-grid">
-          {packs.map((pack, index) => (
-            <div
-              key={pack.id}
-              className={`pack-card ${index === 1 ? 'popular' : ''}`}
-            >
-              <div className="pack-card__info">
-                <span className="pack-card__count">{pack.energy} ⚡</span>
-                {index === 1 && <span className="pack-card__badge">Популярный</span>}
-              </div>
-              <span className="pack-card__price">{pack.price} ₽</span>
-              <div className="pack-card__buttons">
-                <button 
-                  className="pack-card__button"
-                  onClick={() => handlePurchasePack(pack)}
-                >
-                  💳 Картой
-                </button>
-                <button 
-                  className="pack-card__button pack-card__button--sbp"
-                  onClick={() => handlePurchasePackSBP(pack)}
-                >
-                  🏦 СБП
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Секция тарифов */}
-      <div className="energy-section">
-        <h2 className="energy-section__title">Тарифы</h2>
-        <p className="energy-section__subtitle">
-          Энергия ⚡ – это валюта, которую ты тратишь на генерацию фото.<br />
-          Обычный режим – 1 ⚡, PRO режим – 2 ⚡
-        </p>
-
-        <div className="tariff-cards">
-          {tariffs.map((tariff) => (
-            <div
-              key={tariff.id}
-              className={`tariff-card ${currentPlan === tariff.id ? 'tariff-card--active' : ''}`}
-            >
-              <div className="tariff-card__header">
-                <span className="tariff-card__name">{tariff.name}</span>
-                {tariff.badge && (
-                  <span className={`tariff-card__badge tariff-card__badge--${tariff.badge.type}`}>
-                    {tariff.badge.text}
-                  </span>
-                )}
-              </div>
-              <div className="tariff-card__price">
-                <span className="tariff-card__amount">{tariff.price}</span>
-                <span className="tariff-card__energy">{tariff.energy}</span>
-              </div>
-              <p className="tariff-card__desc">{tariff.description}</p>
-              
-              {tariff.id !== 'free' && (
-                <div className="tariff-card__buttons">
+          {packs.map((pack) => {
+            const badge = pack.id === 'pack_50' ? 'популярно' : pack.id === 'pack_120' ? 'выгодно' : null;
+            const isPopular = pack.id === 'pack_50';
+            
+            return (
+              <div
+                key={pack.id}
+                className={`pack-card ${isPopular ? 'popular' : ''}`}
+              >
+                <div className="pack-card__info">
+                  <span className="pack-card__count">{pack.energy} ⚡</span>
+                  {badge && <span className="pack-card__badge">{badge}</span>}
+                </div>
+                <span className="pack-card__price">{pack.price} ₽</span>
+                <div className="pack-card__buttons">
                   <button 
-                    className="tariff-card__button"
-                    onClick={() => handleSelectTariff(tariff)}
+                    className="pack-card__button"
+                    onClick={() => handlePurchasePack(pack)}
                   >
                     💳 Картой
                   </button>
                   <button 
-                    className="tariff-card__button tariff-card__button--sbp"
-                    onClick={() => handleSelectTariffSBP(tariff)}
+                    className="pack-card__button pack-card__button--sbp"
+                    onClick={() => handlePurchasePackSBP(pack)}
                   >
                     🏦 СБП
                   </button>
                 </div>
-              )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
       </div>
+
+      {/* Секция тарифов - СКРЫТО (будет использоваться позже) */}
+      {false && (
+        <div className="energy-section">
+          <h2 className="energy-section__title">Тарифы</h2>
+          <p className="energy-section__subtitle">
+            Энергия ⚡ – это валюта, которую ты тратишь на генерацию фото.<br />
+            Обычный режим – 1 ⚡, PRO режим – 2 ⚡
+          </p>
+
+          <div className="tariff-cards">
+            {tariffs.map((tariff) => (
+              <div
+                key={tariff.id}
+                className={`tariff-card ${currentPlan === tariff.id ? 'tariff-card--active' : ''}`}
+              >
+                <div className="tariff-card__header">
+                  <span className="tariff-card__name">{tariff.name}</span>
+                  {tariff.badge && (
+                    <span className={`tariff-card__badge tariff-card__badge--${tariff.badge.type}`}>
+                      {tariff.badge.text}
+                    </span>
+                  )}
+                </div>
+                <div className="tariff-card__price">
+                  <span className="tariff-card__amount">{tariff.price}</span>
+                  <span className="tariff-card__energy">{tariff.energy}</span>
+                </div>
+                <p className="tariff-card__desc">{tariff.description}</p>
+                
+                {tariff.id !== 'free' && (
+                  <div className="tariff-card__buttons">
+                    <button 
+                      className="tariff-card__button"
+                      onClick={() => handleSelectTariff(tariff)}
+                    >
+                      💳 Картой
+                    </button>
+                    <button 
+                      className="tariff-card__button tariff-card__button--sbp"
+                      onClick={() => handleSelectTariffSBP(tariff)}
+                    >
+                      🏦 СБП
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Payment Modal */}
       <PaymentModal
