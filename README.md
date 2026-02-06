@@ -170,26 +170,142 @@ gcloud builds submit . --config=cloudbuild.yaml --project=seeyay-ai
 
 #### ⚠️ Pre-Production Checklist
 
-Перед деплоем на production удалите весь dev-only код:
+Перед деплоем на production удалите весь dev-only код. Все dev-функции помечены комментариями `# DEV ONLY - REMOVE BEFORE PROD`.
 
-1. **Удалите файл:** `bot/handlers/dev_commands.py`
-2. **Удалите из `bot/handlers/__init__.py`:**
-   - Строку импорта `from .dev_commands import router as dev_commands_router`
-   - Строку `"dev_commands_router"` из списка `__all__`
-3. **Удалите из `bot/main.py`:**
-   - Строку импорта `dev_commands_router` в блоке `from bot.handlers import (...)`
-   - Строку `dp.include_router(dev_commands_router)` в регистрации роутеров
-4. **Удалите папку:** `scripts/` (содержит dev-only скрипты)
-5. **Проверьте отсутствие dev-команд:**
+##### Шаг 1: Удалите файлы и папки
 
 ```bash
-# Убедитесь, что эти команды ничего не находят
-grep -r "dev_commands" bot/
-grep -r "_reset\|_addbalance" bot/handlers/
-grep -r "DEV ONLY" .
+# Удалите файл с dev-командами
+rm bot/handlers/dev_commands.py
+
+# Удалите папку со скриптами
+rm -rf scripts/
 ```
 
-Все dev-функции помечены комментариями `# DEV ONLY - REMOVE BEFORE PROD` для удобства поиска.
+##### Шаг 2: Очистите `bot/handlers/__init__.py`
+
+**Было:**
+```python
+from .start import router as start_router
+from .photo import router as photo_router
+from .template_selection import router as template_selection_router
+from .energy import router as energy_router
+from .dev_commands import router as dev_commands_router  # DEV ONLY - REMOVE BEFORE PROD
+
+__all__ = [
+    "start_router",
+    "template_selection_router",
+    "energy_router",
+    "photo_router",
+    "dev_commands_router"  # DEV ONLY - REMOVE BEFORE PROD
+]
+```
+
+**Стало:**
+```python
+from .start import router as start_router
+from .photo import router as photo_router
+from .template_selection import router as template_selection_router
+from .energy import router as energy_router
+
+__all__ = [
+    "start_router",
+    "template_selection_router",
+    "energy_router",
+    "photo_router"
+]
+```
+
+##### Шаг 3: Очистите `bot/main.py`
+
+**Найдите блок импортов (примерно строка 63-70):**
+
+**Было:**
+```python
+from bot.handlers import (
+    start_router,
+    template_selection_router,
+    energy_router,
+    photo_router,
+    dev_commands_router  # DEV ONLY - REMOVE BEFORE PROD
+)
+```
+
+**Стало:**
+```python
+from bot.handlers import (
+    start_router,
+    template_selection_router,
+    energy_router,
+    photo_router
+)
+```
+
+**Найдите регистрацию роутеров (примерно строка 93-98):**
+
+**Было:**
+```python
+dp.include_router(start_router)
+dp.include_router(template_selection_router)
+dp.include_router(energy_router)
+dp.include_router(photo_router)
+dp.include_router(dev_commands_router)  # DEV ONLY - REMOVE BEFORE PROD
+```
+
+**Стало:**
+```python
+dp.include_router(start_router)
+dp.include_router(template_selection_router)
+dp.include_router(energy_router)
+dp.include_router(photo_router)
+```
+
+##### Шаг 4: Проверка удаления
+
+Выполните эти команды — они **НЕ ДОЛЖНЫ** ничего находить:
+
+```bash
+# Проверка 1: Поиск файла dev_commands
+ls bot/handlers/dev_commands.py 2>/dev/null && echo "❌ ОШИБКА: Файл dev_commands.py еще существует!" || echo "✅ OK"
+
+# Проверка 2: Поиск папки scripts
+ls -d scripts/ 2>/dev/null && echo "❌ ОШИБКА: Папка scripts/ еще существует!" || echo "✅ OK"
+
+# Проверка 3: Поиск импортов dev_commands
+grep -r "dev_commands" bot/ && echo "❌ ОШИБКА: Найдены импорты dev_commands!" || echo "✅ OK"
+
+# Проверка 4: Поиск dev-команд в коде
+grep -r "_reset\|_addbalance" bot/handlers/ && echo "❌ ОШИБКА: Найдены dev-команды!" || echo "✅ OK"
+
+# Проверка 5: Поиск маркеров DEV ONLY
+grep -r "DEV ONLY" bot/ backend/ && echo "❌ ОШИБКА: Найдены маркеры DEV ONLY!" || echo "✅ OK"
+
+# Итоговая проверка (все в одном)
+echo "=== ФИНАЛЬНАЯ ПРОВЕРКА ==="
+! ls bot/handlers/dev_commands.py 2>/dev/null && \
+! ls -d scripts/ 2>/dev/null && \
+! grep -r "dev_commands" bot/ 2>/dev/null && \
+! grep -r "_reset\|_addbalance" bot/handlers/ 2>/dev/null && \
+! grep -r "DEV ONLY" bot/ backend/ 2>/dev/null && \
+echo "✅ ВСЁ ЧИСТО! Можно деплоить на production." || \
+echo "❌ НАЙДЕНЫ ОСТАТКИ DEV-КОДА! Проверьте вывод выше."
+```
+
+##### Что должно быть удалено (полный список):
+
+| Файл/Папка | Действие |
+|------------|----------|
+| `bot/handlers/dev_commands.py` | **Удалить файл** |
+| `scripts/` | **Удалить папку** целиком |
+| `bot/handlers/__init__.py` | Удалить 2 строки с `dev_commands_router` |
+| `bot/main.py` | Удалить 2 строки с `dev_commands_router` |
+
+**После удаления в коде НЕ ДОЛЖНО быть:**
+- ❌ Строк с `dev_commands`
+- ❌ Команд `/_reset` или `/_addbalance`
+- ❌ Комментариев `# DEV ONLY`
+- ❌ Файла `bot/handlers/dev_commands.py`
+- ❌ Папки `scripts/`
 
 ### Development деплой
 
