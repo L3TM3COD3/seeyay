@@ -13,11 +13,10 @@ dist/
 build/
 *.egg
 
-# Environment
+# Secrets (never commit!)
 .env
 .env.local
 .env.*.local
-.env.dev
 
 # Database
 *.db

@@ -105,8 +105,7 @@ Seeyay.ai/
 │
 ├── cloudbuild.yaml            # CI/CD production
 ├── cloudbuild-dev.yaml        # CI/CD development
-├── TROUBLESHOOTING.md         # Решение проблем
-└── README.DEV.md              # Dev окружение
+└── TROUBLESHOOTING.md         # Решение проблем
 ```
 
 ## ⚙️ Настройка Google Cloud
@@ -259,15 +258,12 @@ gcloud projects add-iam-policy-binding seeyay-ai-dev \
 # 1. Работаем в dev ветке
 git checkout dev
 
-# 2. Вносим изменения, тестируем локально
-python run_dev.py
-
-# 3. Деплоим на dev окружение
+# 2. Деплоим на dev окружение
 gcloud builds submit . --config=cloudbuild-dev.yaml --project=seeyay-ai-dev
 
-# 4. Тестируем в dev боте (@siay_ai_dev_bot)
+# 3. Тестируем в dev боте (@siay_ai_dev_bot)
 
-# 5. Когда всё ОК — мержим в main и деплоим на prod
+# 4. Когда всё ОК — мержим в main и деплоим на prod
 git checkout main
 git merge dev
 gcloud builds submit . --config=cloudbuild.yaml --project=seeyay-ai
@@ -292,29 +288,6 @@ gcloud builds submit . --config=cloudbuild.yaml --project=seeyay-ai
 4. ✅ Настроить webhook'и в личном кабинете CloudPayments
 5. ✅ Подключить онлайн-кассу CloudKassir
 6. ✅ Настроить Cloud Scheduler jobs
-
-## 💻 Локальная разработка
-
-Для безопасной разработки используйте отдельное **dev окружение**. Подробная инструкция в **[README.DEV.md](README.DEV.md)**.
-
-### Быстрый старт
-
-```bash
-# Переключиться на dev ветку
-git checkout dev
-
-# Настроить GCP для dev
-gcloud config set project seeyay-ai-dev
-gcloud auth application-default login
-
-# Запустить dev окружение
-python run_dev_env.py
-
-# В отдельном терминале: Mini App
-cd mini-app
-npm install
-npm run dev
-```
 
 ## 🗄️ API Endpoints
 

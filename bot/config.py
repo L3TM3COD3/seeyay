@@ -21,14 +21,8 @@ class Settings(BaseSettings):
     gcp_location: str = Field(default="europe-west4")
     
     # Backend
-    backend_url: str = Field(default="http://localhost:8000")
-    mini_app_url: str = Field(default="https://your-domain.com")
-    
-    # Optional: for local development with .env
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        extra = "ignore"
+    backend_url: str = Field(default="")
+    mini_app_url: str = Field(default="")
 
 
 @lru_cache()
@@ -36,7 +30,6 @@ def get_settings() -> Settings:
     """
     Get settings from environment variables or Secret Manager.
     In Cloud Run, secrets come from mounted volumes or Secret Manager API.
-    Locally, they come from .env file.
     """
     settings = Settings()
     

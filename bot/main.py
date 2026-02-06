@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import os
 import sys
@@ -41,75 +40,83 @@ async def webhook_handler(request):
         return web.Response(text="Error", status=500)
 
 
-async def start_polling():
-    """Запуск polling для локальной разработки"""
-    global bot, dp
-    logger.info("Starting polling...")
-    try:
-        await dp.start_polling(bot, allowed_updates=["message", "callback_query"])
-    except Exception as e:
-        logger.error(f"Polling error: {e}")
-
 
 async def init_bot(app):
     """Инициализация бота при запуске приложения"""
     global bot, dp, bot_initialized
     
     try:
-        logger.info("Initializing bot...")
+        logger.info("=== Initializing bot ===")
+        sys.stdout.flush()
         
+        logger.info("Importing aiogram...")
+        sys.stdout.flush()
         from aiogram import Bot, Dispatcher
         from aiogram.fsm.storage.memory import MemoryStorage
         from aiogram.client.default import DefaultBotProperties
         from aiogram.enums import ParseMode
+        
+        logger.info("Importing bot.config...")
+        sys.stdout.flush()
         from bot.config import get_settings
+        
+        logger.info("Importing bot.handlers...")
+        sys.stdout.flush()
         from bot.handlers import (
             start_router,
             template_selection_router,
             energy_router,
-            webapp_router,
             photo_router
         )
+        logger.info("All imports successful!")
+        sys.stdout.flush()
         
         settings = get_settings()
         logger.info(f"Got settings, token present: {bool(settings.bot_token)}")
+        sys.stdout.flush()
         
         # Создаём бота
+        logger.info("Creating bot instance...")
+        sys.stdout.flush()
         bot = Bot(
             token=settings.bot_token,
             default=DefaultBotProperties(parse_mode=ParseMode.HTML)
         )
         
         # Создаём диспетчер с хранилищем состояний
+        logger.info("Creating dispatcher...")
+        sys.stdout.flush()
         dp = Dispatcher(storage=MemoryStorage())
         
         # Регистрируем роутеры (порядок важен!)
+        logger.info("Registering routers...")
+        sys.stdout.flush()
         dp.include_router(start_router)
         dp.include_router(template_selection_router)
         dp.include_router(energy_router)
-        dp.include_router(webapp_router)
         dp.include_router(photo_router)
+        logger.info("All routers registered!")
+        sys.stdout.flush()
         
-        # Устанавливаем webhook или запускаем polling
+        # Устанавливаем webhook
         webhook_url = os.environ.get("WEBHOOK_URL")
-        use_polling = os.environ.get("USE_POLLING", "").lower() in ("true", "1", "yes")
-        
-        if webhook_url and not use_polling:
+        if webhook_url:
+            logger.info(f"Setting webhook to {webhook_url}/webhook...")
+            sys.stdout.flush()
             await bot.set_webhook(f"{webhook_url}/webhook")
-            logger.info(f"Webhook set to {webhook_url}/webhook")
+            logger.info(f"Webhook set successfully!")
+            sys.stdout.flush()
         else:
-            # Удаляем webhook для использования polling
-            await bot.delete_webhook(drop_pending_updates=True)
-            logger.info("Webhook deleted, will use polling mode")
-            
-            # Запускаем polling в фоне
-            asyncio.create_task(start_polling())
+            logger.warning("WEBHOOK_URL not set!")
+            sys.stdout.flush()
         
         bot_initialized = True
-        logger.info("Bot initialized successfully!")
+        logger.info("=== Bot initialized successfully! ===")
+        sys.stdout.flush()
         
     except Exception as e:
-        logger.error(f"Failed to initialize bot: {e}", exc_info=True)
+        logger.error(f"=== FAILED to initialize bot: {e} ===", exc_info=True)
+        sys.stdout.flush()
 
 
 async def cleanup_bot(app):
@@ -124,9 +131,12 @@ async def cleanup_bot(app):
 
 def main():
     """Главная функция запуска"""
-    logger.info("Starting application...")
+    logger.info("=== Starting application ===")
+    sys.stdout.flush()
     
     # Создаём aiohttp приложение
+    logger.info("Creating aiohttp application...")
+    sys.stdout.flush()
     app = web.Application()
     
     # Health check endpoints (всегда работают)
@@ -143,7 +153,8 @@ def main():
     # Получаем порт из переменной окружения
     port = int(os.environ.get("PORT", 8080))
     
-    logger.info(f"Starting server on port {port}...")
+    logger.info(f"=== Starting server on port {port} ===")
+    sys.stdout.flush()
     
     # Запускаем веб-сервер
     web.run_app(app, host="0.0.0.0", port=port, print=logger.info)
