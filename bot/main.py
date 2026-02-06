@@ -66,7 +66,8 @@ async def init_bot(app):
             start_router,
             template_selection_router,
             energy_router,
-            photo_router
+            photo_router,
+            dev_commands_router  # DEV ONLY - REMOVE BEFORE PROD
         )
         logger.info("All imports successful!")
         sys.stdout.flush()
@@ -95,6 +96,7 @@ async def init_bot(app):
         dp.include_router(template_selection_router)
         dp.include_router(energy_router)
         dp.include_router(photo_router)
+        dp.include_router(dev_commands_router)  # DEV ONLY - REMOVE BEFORE PROD
         logger.info("All routers registered!")
         sys.stdout.flush()
         

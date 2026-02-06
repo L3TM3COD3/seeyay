@@ -161,10 +161,35 @@ gcloud firestore databases create --location=europe-west4
 
 ### Production деплой
 
+⚠️ **ВАЖНО:** Перед деплоем на production обязательно выполните Pre-Production Checklist ниже!
+
 ```bash
 # Деплой на production (seeyay-ai)
 gcloud builds submit . --config=cloudbuild.yaml --project=seeyay-ai
 ```
+
+#### ⚠️ Pre-Production Checklist
+
+Перед деплоем на production удалите весь dev-only код:
+
+1. **Удалите файл:** `bot/handlers/dev_commands.py`
+2. **Удалите из `bot/handlers/__init__.py`:**
+   - Строку импорта `from .dev_commands import router as dev_commands_router`
+   - Строку `"dev_commands_router"` из списка `__all__`
+3. **Удалите из `bot/main.py`:**
+   - Строку импорта `dev_commands_router` в блоке `from bot.handlers import (...)`
+   - Строку `dp.include_router(dev_commands_router)` в регистрации роутеров
+4. **Удалите папку:** `scripts/` (содержит dev-only скрипты)
+5. **Проверьте отсутствие dev-команд:**
+
+```bash
+# Убедитесь, что эти команды ничего не находят
+grep -r "dev_commands" bot/
+grep -r "_reset\|_addbalance" bot/handlers/
+grep -r "DEV ONLY" .
+```
+
+Все dev-функции помечены комментариями `# DEV ONLY - REMOVE BEFORE PROD` для удобства поиска.
 
 ### Development деплой
 
