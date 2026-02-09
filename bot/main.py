@@ -31,7 +31,18 @@ async def webhook_handler(request):
     
     try:
         from aiogram.types import Update
+        import json
         data = await request.json()
+        
+        # region agent log  
+        try:
+            with open(r'c:\PetProjects\Seeyay.ai\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                callback_data = data.get('callback_query', {}).get('data') if 'callback_query' in data else None
+                f.write(json.dumps({"sessionId":"debug-session","runId":"post-fix","hypothesisId":"F","location":"main.py:webhook","message":"Webhook received","data":{"update_type":"callback_query" if 'callback_query' in data else "message","callback_data":callback_data},"timestamp":__import__('time').time()*1000})+'\n')
+        except:
+            pass
+        # endregion
+        
         update = Update(**data)
         await dp.feed_update(bot=bot, update=update)
         return web.Response(text="OK", status=200)

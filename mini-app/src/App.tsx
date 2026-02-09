@@ -1,16 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Header, GenerationSettings, Gallery, Tabs, Profile, BottomNavigation } from './components';
+import { Header, Gallery, Tabs, Profile, BottomNavigation } from './components';
 // import { EnergyPage } from './pages/EnergyPage'; // Не используется, логика покупки теперь в Profile
 import { Style, Category, User, fetchUser, fetchStyles } from './api/client';
 import { useTelegram } from './hooks/useTelegram';
 
 type TabId = 'photo-ideas' | 'profile';
-type Screen = TabId | 'settings';
 
 function App() {
-  const [screen, setScreen] = useState<Screen>('photo-ideas');
   const [activeTab, setActiveTab] = useState<TabId>('photo-ideas');
-  const [selectedStyle, setSelectedStyle] = useState<Style | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [styles, setStyles] = useState<Style[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -64,47 +61,10 @@ function App() {
     ? styles 
     : styles.filter(s => s.category === activeCategory);
 
-  const handleSelectStyle = useCallback((style: Style) => {
+  const handleSelectStyle = useCallback(async (style: Style) => {
     hapticFeedback('medium');
-    setSelectedStyle(style);
-    setScreen('settings');
-  }, [hapticFeedback]);
-
-  const handleTabChange = useCallback((tab: TabId) => {
-    hapticFeedback('light');
-    setActiveTab(tab);
-    setScreen(tab);
-    setSelectedStyle(null);
-  }, [hapticFeedback]);
-
-  const handleEnergyClick = useCallback(() => {
-    hapticFeedback('light');
-    setActiveTab('profile');
-    setScreen('profile');
-  }, [hapticFeedback]);
-
-  const handleLogoClick = useCallback(() => {
-    hapticFeedback('light');
-    setActiveTab('photo-ideas');
-    setScreen('photo-ideas');
-    setSelectedStyle(null);
-  }, [hapticFeedback]);
-
-  const handleBack = useCallback(() => {
-    hapticFeedback('light');
-    setScreen(activeTab);
-    setSelectedStyle(null);
-  }, [hapticFeedback, activeTab]);
-
-
-  const handleSubmitGeneration = useCallback(async (settings: { mode: 'normal' | 'pro' }) => {
-    if (!selectedStyle) {
-      console.error('No style selected');
-      return;
-    }
-
-    // Используем API-подход вместо sendData() для надёжности
-    // sendData() не всегда работает в зависимости от способа открытия мини-аппа
+    
+    // Сразу вызываем API для отправки конфигурации боту (минуя preview экран)
     const telegramId = tgUser?.id || 0;
     
     if (!telegramId) {
@@ -114,9 +74,9 @@ function App() {
 
     const selection = {
       telegram_id: telegramId,
-      style_id: selectedStyle.id,
-      style_name: selectedStyle.name,
-      mode: settings.mode
+      style_id: style.id,
+      style_name: style.name,
+      mode: 'normal' as const  // По умолчанию обычный режим
     };
     
     try {
@@ -124,17 +84,36 @@ function App() {
       const success = await submitStyleSelection(selection);
       
       if (success) {
-        // Закрываем мини-апп
+        // Закрываем мини-апп после успешной отправки
         if (window.Telegram?.WebApp) {
           window.Telegram.WebApp.close();
         }
       } else {
         console.error('Failed to submit style selection');
+        // Можно показать уведомление об ошибке
       }
     } catch (error) {
       console.error('Error submitting style selection:', error);
+      // Можно показать уведомление об ошибке
     }
-  }, [selectedStyle, tgUser]);
+  }, [hapticFeedback, tgUser]);
+
+  const handleTabChange = useCallback((tab: TabId) => {
+    hapticFeedback('light');
+    setActiveTab(tab);
+  }, [hapticFeedback]);
+
+  const handleEnergyClick = useCallback(() => {
+    hapticFeedback('light');
+    setActiveTab('profile');
+  }, [hapticFeedback]);
+
+  const handleLogoClick = useCallback(() => {
+    hapticFeedback('light');
+    setActiveTab('photo-ideas');
+  }, [hapticFeedback]);
+
+
 
   // Показываем загрузку пока нет данных пользователя
   if (!user) {
@@ -143,31 +122,6 @@ function App() {
         <div className="loading">
           <div className="loading-spinner" />
         </div>
-      </div>
-    );
-  }
-
-  // Экран настроек генерации
-  if (screen === 'settings' && selectedStyle) {
-    return (
-      <div className="app">
-        <Header 
-          balance={user.balance}
-          onEnergyClick={handleEnergyClick}
-          onLogoClick={handleLogoClick}
-        />
-        <main className="app-content">
-          <GenerationSettings
-            style={selectedStyle}
-            userBalance={user.balance}
-            onBack={handleBack}
-            onSubmit={handleSubmitGeneration}
-          />
-        </main>
-        <BottomNavigation 
-          activeTab={activeTab}
-          onTabChange={handleTabChange}
-        />
       </div>
     );
   }

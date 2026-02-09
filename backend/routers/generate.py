@@ -10,9 +10,7 @@ from backend.firestore import (
     update_user_balance, 
     create_generation,
     update_generation_status,
-    set_pending_style_selection,
-    get_pending_style_selection,
-    clear_pending_style_selection
+    set_pending_style_selection
 )
 from backend.styles_data import get_style_by_id
 from backend.secrets import get_bot_token
@@ -35,7 +33,9 @@ class StyleSelectionResponse(BaseModel):
 
 @router.post("/select-style", response_model=StyleSelectionResponse)
 async def select_style_endpoint(request: StyleSelectionRequest):
-    """Обработка выбора стиля из Mini App - сохраняет выбор и отправляет сообщение пользователю"""
+    """
+    Обработка выбора стиля из Mini App - сохраняет выбор и отправляет конфигурационное сообщение.
+    """
     logger.info(f"Style selection received: user={request.telegram_id}, style={request.style_id}")
     
     try:
@@ -45,7 +45,72 @@ async def select_style_endpoint(request: StyleSelectionRequest):
             logger.error("Bot token not available")
             raise HTTPException(status_code=500, detail="Bot token not configured")
         
-        # Сохраняем выбор стиля в Firestore (для использования при получении фото)
+        # Получаем пользователя для определения типа сообщения
+        user = await get_user(request.telegram_id)
+        if not user:
+            logger.error(f"User not found: {request.telegram_id}")
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        successful_generations = user.get("successful_generations", 0)
+        cost = 1 if request.mode == "normal" else 6
+        
+        # Определяем текст сообщения
+        if successful_generations == 0:
+            # m3: Конфигурация для новичка
+            message_text = (
+                f"<b>Выбран шаблон: {request.style_name}</b>\n\n"
+                f"Стоимость: {cost}<b>⚡️</b>\n\n"
+                f"<i>Для лучшей генерации:</i> сделай селфи с ровным светом, без фильтров\n\n"
+                f"📸 Пришли фото хорошего качества"
+            )
+        elif request.mode == "pro":
+            # m4.2: PRO конфигурация
+            message_text = (
+                f"<b>Выбран шаблон: {request.style_name}</b>\n\n"
+                f"Режим: 💎 PRO\n"
+                f"Стоимость: {cost}<b>⚡️</b>\n\n"
+                f"<i>Для лучшей генерации:</i> сделай селфи с ровным светом, без фильтров\n\n"
+                f"📸 Пришли фото хорошего качества"
+            )
+        else:
+            # m4.1: Обычная конфигурация
+            message_text = (
+                f"<b>Выбран шаблон: {request.style_name}</b>\n\n"
+                f"Режим: обычный\n"
+                f"Стоимость: {cost}<b>⚡️</b>\n\n"
+                f"<i>Для лучшей генерации:</i> используй PRO-режим (больше деталей и качества), сделай селфи с ровным светом, без фильтров\n\n"
+                f"📸 Пришли фото хорошего качества"
+            )
+        
+        # Получаем Mini App URL из переменных окружения
+        mini_app_url = os.environ.get("MINI_APP_URL", "https://seeyay-miniapp-445810320877.europe-west4.run.app")
+        
+        # Формируем клавиатуру (зависит от режима и опыта пользователя)
+        if successful_generations == 0:
+            # Для новичков - только кнопка смены шаблона
+            keyboard = {
+                "inline_keyboard": [
+                    [{"text": "🎭 Сменить шаблон", "web_app": {"url": mini_app_url}}]
+                ]
+            }
+        elif request.mode == "pro":
+            # PRO режим - кнопка переключения на обычный + смена шаблона
+            keyboard = {
+                "inline_keyboard": [
+                    [{"text": "Использовать обычный режим", "callback_data": f"toggle_normal:{request.style_id}"}],
+                    [{"text": "🎭 Сменить шаблон", "web_app": {"url": mini_app_url}}]
+                ]
+            }
+        else:
+            # Обычный режим - кнопка переключения на PRO + смена шаблона
+            keyboard = {
+                "inline_keyboard": [
+                    [{"text": "💎 Использовать PRO-режим", "callback_data": f"toggle_pro:{request.style_id}"}],
+                    [{"text": "🎭 Сменить шаблон", "web_app": {"url": mini_app_url}}]
+                ]
+            }
+        
+        # Сохраняем выбор стиля в Firestore (для fallback при получении фото)
         await set_pending_style_selection(
             telegram_id=request.telegram_id,
             style_id=request.style_id,
@@ -53,25 +118,7 @@ async def select_style_endpoint(request: StyleSelectionRequest):
             mode=request.mode
         )
         
-        # Формируем сообщение
-        cost = 1 if request.mode == "normal" else 2
-        mode_text = "✨ PRO" if request.mode == "pro" else "Обычный"
-        
-        message_text = (
-            f"✨ Отлично! Ты выбрал стиль: <b>{request.style_name}</b>\n\n"
-            f"📊 Настройки:\n"
-            f"• Режим: {mode_text}\n"
-            f"• Стоимость: {cost} ⚡\n\n"
-            f"📷 Теперь отправь мне свою фотографию, и я создам для тебя потрясающий результат!"
-        )
-        
-        # Кнопки
-        keyboard = {
-            "inline_keyboard": [
-                [{"text": "🔄 Выбрать другой стиль", "web_app": {"url": os.environ.get("MINI_APP_URL", "https://seeyay-miniapp-445810320877.europe-west4.run.app")}}],
-                [{"text": "❌ Отменить", "callback_data": "cancel"}]
-            ]
-        }
+        logger.info(f"Style selection saved to Firestore: {request.telegram_id} -> {request.style_id}")
         
         # Отправляем сообщение через Telegram API
         async with httpx.AsyncClient() as client:
@@ -88,6 +135,8 @@ async def select_style_endpoint(request: StyleSelectionRequest):
             if response.status_code != 200:
                 logger.error(f"Telegram API error: {response.status_code} - {response.text}")
                 raise HTTPException(status_code=500, detail=f"Failed to send message: {response.text}")
+        
+        logger.info(f"Configuration message sent to user {request.telegram_id}")
         
         return StyleSelectionResponse(success=True, message="Style selected successfully")
         

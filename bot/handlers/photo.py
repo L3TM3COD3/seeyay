@@ -184,15 +184,13 @@ async def handle_photo(message: Message, state: FSMContext):
             if new_count == 1 and not user.get("m7_1_sent", False):
                 # m7.1: первая генерация
                 text = m7_1_result_first(style_name, new_balance)
-                # Отправляем фото, получаем file_id
                 sent_msg = await message.answer_photo(
                     photo=input_file,
                     caption=text,
                     parse_mode="HTML"
                 )
-                file_id = sent_msg.photo[-1].file_id
-                keyboard = kb_result_m71(style_id, file_id)
-                await sent_msg.edit_caption(caption=text, reply_markup=keyboard, parse_mode="HTML")
+                keyboard = kb_result_m71(style_id, str(sent_msg.message_id))
+                await sent_msg.edit_reply_markup(reply_markup=keyboard)
                 await set_user_flag(telegram_id, "m7_1_sent", True)
                 
             elif new_count == 2 and not user.get("m7_2_sent", False):
@@ -203,9 +201,8 @@ async def handle_photo(message: Message, state: FSMContext):
                     caption=text,
                     parse_mode="HTML"
                 )
-                file_id = sent_msg.photo[-1].file_id
-                keyboard = kb_result_m72(style_id, file_id)
-                await sent_msg.edit_caption(caption=text, reply_markup=keyboard, parse_mode="HTML")
+                keyboard = kb_result_m72(style_id, str(sent_msg.message_id))
+                await sent_msg.edit_reply_markup(reply_markup=keyboard)
                 await set_user_flag(telegram_id, "m7_2_sent", True)
                 
             elif new_count == 3 and not user.get("m7_3_sent", False):
@@ -216,9 +213,8 @@ async def handle_photo(message: Message, state: FSMContext):
                     caption=text,
                     parse_mode="HTML"
                 )
-                file_id = sent_msg.photo[-1].file_id
-                keyboard = kb_result_m73(style_id, file_id)
-                await sent_msg.edit_caption(caption=text, reply_markup=keyboard, parse_mode="HTML")
+                keyboard = kb_result_m73(style_id, str(sent_msg.message_id))
+                await sent_msg.edit_reply_markup(reply_markup=keyboard)
                 await set_user_flag(telegram_id, "m7_3_sent", True)
                 
             else:
@@ -229,9 +225,8 @@ async def handle_photo(message: Message, state: FSMContext):
                     caption=text,
                     parse_mode="HTML"
                 )
-                file_id = sent_msg.photo[-1].file_id
-                keyboard = kb_result_m8(style_id, file_id)
-                await sent_msg.edit_caption(caption=text, reply_markup=keyboard, parse_mode="HTML")
+                keyboard = kb_result_m8(style_id, str(sent_msg.message_id))
+                await sent_msg.edit_reply_markup(reply_markup=keyboard)
         else:
             logger.warning(f"No results from generation for user {telegram_id}")
             
@@ -379,18 +374,33 @@ async def handle_repeat(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("download:"))
 async def handle_download(callback: CallbackQuery):
-    """Обработчик кнопки "Скачать файл" - отправляет фото как документ"""
+    """Обработчик кнопки "Скачать файл" - скачивает фото из Telegram и отправляет как документ"""
     await callback.answer("Отправляю файл в полном качестве...")
     
-    file_id = callback.data.split(":", 1)[1]
-    
     try:
-        # Отправляем фото как документ для полного качества
+        # Получаем file_id фото из сообщения с кнопкой
+        if not callback.message.photo:
+            await callback.message.answer("❌ Фото не найдено в сообщении")
+            return
+        
+        file_id = callback.message.photo[-1].file_id
+        
+        # Скачиваем фото из Telegram
+        file = await callback.bot.get_file(file_id)
+        file_data = await callback.bot.download_file(file.file_path)
+        
+        # Отправляем как документ для полного качества
+        input_file = BufferedInputFile(
+            file_data.read(),
+            filename="seeyay_result.jpg"
+        )
+        
         await callback.message.answer_document(
-            document=file_id,
+            document=input_file,
             caption="📥 Ваше фото в максимальном качестве"
         )
-        logger.info(f"File {file_id} sent as document")
+        logger.info(f"File downloaded and sent as document for user {callback.from_user.id}")
+        
     except Exception as e:
-        logger.error(f"Error sending file as document: {e}")
+        logger.error(f"Error downloading and sending file: {e}", exc_info=True)
         await callback.message.answer("❌ Не удалось отправить файл")

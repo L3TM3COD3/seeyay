@@ -79,7 +79,6 @@ def kb_result_m71(style_id: str, file_id: str) -> InlineKeyboardMarkup:
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="📥 Скачать файл", callback_data=f"download:{file_id}"),
             InlineKeyboardButton(text="🔁 Повторить 1⚡", callback_data=f"repeat:{style_id}")
         ],
         [_create_webapp_button("🎭 Сменить шаблон", settings.mini_app_url)]
@@ -93,7 +92,6 @@ def kb_result_m72(style_id: str, file_id: str) -> InlineKeyboardMarkup:
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="📥 Скачать файл", callback_data=f"download:{file_id}"),
             InlineKeyboardButton(text="🔁 Повторить 1⚡", callback_data=f"repeat:{style_id}")
         ],
         [
