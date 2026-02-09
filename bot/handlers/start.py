@@ -28,21 +28,11 @@ async def cmd_start(message: Message, state: FSMContext):
     await state.set_state(UserState.idle)
     
     # Отправляем m1: приветственное сообщение
-    keyboard = kb_template_grid()
-    
-    # region agent log
-    logger.info(f"[DEBUG_MINIAPP_D] Sending welcome message with keyboard: telegram_id={telegram_id}, keyboard_type={type(keyboard)}, keyboard_has_inline={hasattr(keyboard, 'inline_keyboard')}, inline_keyboard_len={len(keyboard.inline_keyboard) if hasattr(keyboard, 'inline_keyboard') else 0}")
-    # endregion
-    
     await message.answer(
         text=m1_welcome(),
-        reply_markup=keyboard,
+        reply_markup=kb_template_grid(),
         parse_mode="HTML"
     )
-    
-    # region agent log
-    logger.info(f"[DEBUG_MINIAPP_D] Welcome message sent to {telegram_id}")
-    # endregion
     
     logger.info(f"User {telegram_id} started the bot")
 

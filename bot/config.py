@@ -31,14 +31,7 @@ def get_settings() -> Settings:
     Get settings from environment variables or Secret Manager.
     In Cloud Run, secrets come from mounted volumes or Secret Manager API.
     """
-    import logging
-    logger = logging.getLogger(__name__)
-    
     settings = Settings()
-    
-    # region agent log
-    logger.info(f"[DEBUG_MINIAPP_A_E] Settings loaded from env: mini_app_url={settings.mini_app_url}, bot_token_present={bool(settings.bot_token)}, backend_url={settings.backend_url}, gcp_project_id={settings.gcp_project_id}")
-    # endregion
     
     # If bot_token is empty, try to get from Secret Manager
     if not settings.bot_token:
@@ -57,9 +50,5 @@ def get_settings() -> Settings:
             object.__setattr__(settings, 'gcp_location', config["location"])
         except Exception as e:
             print(f"Warning: Could not get GCP config: {e}")
-    
-    # region agent log
-    logger.info(f"[DEBUG_MINIAPP_A_E] Settings finalized: mini_app_url={settings.mini_app_url}, bot_token_present={bool(settings.bot_token)}, backend_url={settings.backend_url}, gcp_project_id={settings.gcp_project_id}")
-    # endregion
     
     return settings

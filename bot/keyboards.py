@@ -3,9 +3,6 @@ Inline keyboards for the bot message chain
 """
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from bot.config import get_settings
-import logging
-
-logger = logging.getLogger(__name__)
 
 
 def _create_webapp_button(text: str, url: str) -> InlineKeyboardButton:
@@ -14,19 +11,9 @@ def _create_webapp_button(text: str, url: str) -> InlineKeyboardButton:
     Если URL начинается с https:// — используется WebAppInfo.
     Если HTTP (localhost) — используется callback кнопка с инструкцией.
     """
-    # region agent log
-    logger.info(f"[DEBUG_MINIAPP_A_B] Creating webapp button: text={text}, url={url}, url_starts_with_https={url.startswith('https://') if url else False}, url_empty={not bool(url)}")
-    # endregion
-    
     if url.startswith("https://"):
-        # region agent log
-        logger.info(f"[DEBUG_MINIAPP_C] Creating HTTPS WebApp button with URL: {url}")
-        # endregion
         return InlineKeyboardButton(text=text, web_app=WebAppInfo(url=url))
     else:
-        # region agent log
-        logger.info(f"[DEBUG_MINIAPP_B] Creating callback button (not HTTPS), url: {url}")
-        # endregion
         # Для локальной разработки — callback кнопка (Telegram не разрешает HTTP URL)
         return InlineKeyboardButton(text=f"{text} (dev)", callback_data="open_miniapp_dev")
 
@@ -38,16 +25,6 @@ def kb_template_grid() -> InlineKeyboardMarkup:
     """
     settings = get_settings()
     
-    # region agent log
-    logger.info(f"[DEBUG_MINIAPP_A_E] Settings loaded in kb_template_grid: mini_app_url={settings.mini_app_url}, bot_token_present={bool(settings.bot_token)}, backend_url={settings.backend_url}")
-    # endregion
-    
-    webapp_button = _create_webapp_button("🎭 Смотреть все шаблоны", settings.mini_app_url)
-    
-    # region agent log
-    logger.info(f"[DEBUG_MINIAPP_STRUCTURE] Webapp button created: has_web_app={hasattr(webapp_button, 'web_app')}, has_callback={hasattr(webapp_button, 'callback_data')}, web_app_value={webapp_button.web_app if hasattr(webapp_button, 'web_app') else None}")
-    # endregion
-    
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="Ледяной куб", callback_data="tpl:ice_cube"),
@@ -58,14 +35,9 @@ def kb_template_grid() -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="Скоро...", callback_data="tpl:placeholder")
         ],
         [
-            webapp_button
+            _create_webapp_button("🎭 Смотреть все шаблоны", settings.mini_app_url)
         ]
     ])
-    
-    # region agent log
-    logger.info(f"[DEBUG_MINIAPP_FULL_KB] Full keyboard structure: rows={len(keyboard.inline_keyboard)}, row_0_buttons={len(keyboard.inline_keyboard[0])}, row_2_button_0_text={keyboard.inline_keyboard[2][0].text}, row_2_button_0_has_webapp={hasattr(keyboard.inline_keyboard[2][0], 'web_app')}")
-    # endregion
-    
     return keyboard
 
 
