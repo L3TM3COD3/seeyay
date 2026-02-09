@@ -21,10 +21,31 @@ function App() {
       fetchUser(tgUser.id).then((userData) => {
         if (userData) {
           setUser(userData);
+        } else {
+          // Fallback если не удалось загрузить пользователя
+          console.error('Failed to fetch user data, using fallback');
+          setUser({
+            id: 1,
+            telegram_id: tgUser.id,
+            username: tgUser.username || 'user',
+            plan: 'free',
+            balance: 0
+          });
         }
+      }).catch((error) => {
+        console.error('Error loading user:', error);
+        // Fallback при ошибке
+        setUser({
+          id: 1,
+          telegram_id: tgUser.id,
+          username: tgUser.username || 'user',
+          plan: 'free',
+          balance: 0
+        });
       });
     } else if (isReady) {
-      // Для разработки без Telegram
+      // Для разработки без Telegram или когда tgUser недоступен
+      console.log('Using dev/fallback user data');
       setUser({
         id: 1,
         telegram_id: 123456789,
