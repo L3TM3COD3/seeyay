@@ -539,84 +539,14 @@ async def get_suspended_users_for_expiry() -> List[Dict[str, Any]]:
 
 # ==================== Delayed Messages (Plan 2) ====================
 
-async def get_users_for_delayed_messages() -> Dict[str, List[Dict[str, Any]]]:
-    """
-    Получить пользователей для всех типов delayed сообщений
-    Returns dict with keys: m2, m5, m10_1, m10_2, m12
-    """
-    db = get_db()
-    docs = await db.collection("users").get()
-    
-    now = datetime.utcnow()
-    
-    results = {
-        "m2": [],
-        "m5": [],
-        "m10_1": [],
-        "m10_2": [],
-        "m12": []
-    }
-    
-    for doc in docs:
-        data = doc.to_dict()
-        telegram_id = int(doc.id)
-        data["telegram_id"] = telegram_id
-        
-        # m2: started_at + 1h < now AND successful_generations == 0 AND m2_sent == False
-        if (data.get("m2_sent") == False and 
-            data.get("successful_generations", 0) == 0 and 
-            data.get("started_at") is not None):
-            
-            time_since_start = (now - data["started_at"]).total_seconds() / 3600  # hours
-            if time_since_start >= 1:
-                results["m2"].append(data)
-        
-        # m5: template_selected_at + 7min < now AND successful_generations < 3 AND m5_sent == False
-        # AND (template_selected_at > last_generation_at OR last_generation_at is None)
-        if (data.get("m5_sent") == False and 
-            data.get("successful_generations", 0) < 3 and 
-            data.get("template_selected_at") is not None):
-            
-            template_selected_at = data["template_selected_at"]
-            last_generation_at = data.get("last_generation_at")
-            
-            # Проверяем, что шаблон был выбран после последней генерации (или генераций не было)
-            if last_generation_at is None or template_selected_at > last_generation_at:
-                time_since_template = (now - template_selected_at).total_seconds() / 60  # minutes
-                if time_since_template >= 7:
-                    results["m5"].append(data)
-        
-        # m10.1: last_generation_at + 60min < now AND successful_generations == 1 AND m10_1_sent == False
-        if (data.get("m10_1_sent") == False and 
-            data.get("successful_generations", 0) == 1 and 
-            data.get("last_generation_at") is not None):
-            
-            time_since_generation = (now - data["last_generation_at"]).total_seconds() / 60  # minutes
-            if time_since_generation >= 60:
-                results["m10_1"].append(data)
-        
-        # m10.2: last_generation_at + 60min < now AND successful_generations == 2 AND m10_2_sent == False
-        if (data.get("m10_2_sent") == False and 
-            data.get("successful_generations", 0) == 2 and 
-            data.get("last_generation_at") is not None):
-            
-            time_since_generation = (now - data["last_generation_at"]).total_seconds() / 60  # minutes
-            if time_since_generation >= 60:
-                results["m10_2"].append(data)
-        
-        # m12: m9_sent_at + 24h < now AND any_pack_purchased == False AND m12_sent == False
-        if (data.get("m12_sent") == False and 
-            data.get("any_pack_purchased", False) == False and 
-            data.get("m9_sent_at") is not None):
-            
-            time_since_m9 = (now - data["m9_sent_at"]).total_seconds() / 3600  # hours
-            if time_since_m9 >= 24:
-                results["m12"].append(data)
-    
-    return results
-
-
-# ==================== Delayed Messages (Plan 2) ====================
+def _to_naive_utc(dt) -> datetime:
+    """Convert datetime to naive UTC (remove timezone info)"""
+    if dt is None:
+        return None
+    if hasattr(dt, 'tzinfo') and dt.tzinfo is not None:
+        # Convert to UTC and remove timezone
+        return dt.replace(tzinfo=None)
+    return dt
 
 async def get_users_for_delayed_messages() -> Dict[str, List[Dict[str, Any]]]:
     """
@@ -642,7 +572,7 @@ async def get_users_for_delayed_messages() -> Dict[str, List[Dict[str, Any]]]:
         
         # m2: через 1 час после started_at, если нет генераций
         if not data.get("m2_sent", False):
-            started_at = data.get("started_at")
+            started_at = _to_naive_utc(data.get("started_at"))
             successful_generations = data.get("successful_generations", 0)
             
             if started_at and successful_generations == 0:
@@ -652,8 +582,8 @@ async def get_users_for_delayed_messages() -> Dict[str, List[Dict[str, Any]]]:
         
         # m5: через 7 мин после template_selected_at, если < 3 генераций и не было новых генераций
         if not data.get("m5_sent", False):
-            template_selected_at = data.get("template_selected_at")
-            last_generation_at = data.get("last_generation_at")
+            template_selected_at = _to_naive_utc(data.get("template_selected_at"))
+            last_generation_at = _to_naive_utc(data.get("last_generation_at"))
             successful_generations = data.get("successful_generations", 0)
             
             if template_selected_at and successful_generations < 3:
@@ -665,7 +595,7 @@ async def get_users_for_delayed_messages() -> Dict[str, List[Dict[str, Any]]]:
         
         # m10.1: через 60 мин после last_generation_at, если ровно 1 генерация
         if not data.get("m10_1_sent", False):
-            last_generation_at = data.get("last_generation_at")
+            last_generation_at = _to_naive_utc(data.get("last_generation_at"))
             successful_generations = data.get("successful_generations", 0)
             
             if last_generation_at and successful_generations == 1:
@@ -675,7 +605,7 @@ async def get_users_for_delayed_messages() -> Dict[str, List[Dict[str, Any]]]:
         
         # m10.2: через 60 мин после last_generation_at, если ровно 2 генерации
         if not data.get("m10_2_sent", False):
-            last_generation_at = data.get("last_generation_at")
+            last_generation_at = _to_naive_utc(data.get("last_generation_at"))
             successful_generations = data.get("successful_generations", 0)
             
             if last_generation_at and successful_generations == 2:
@@ -685,7 +615,7 @@ async def get_users_for_delayed_messages() -> Dict[str, List[Dict[str, Any]]]:
         
         # m12: через 24 часа после m9_sent_at, если не купил пакеты
         if not data.get("m12_sent", False):
-            m9_sent_at = data.get("m9_sent_at")
+            m9_sent_at = _to_naive_utc(data.get("m9_sent_at"))
             any_pack_purchased = data.get("any_pack_purchased", False)
             
             if m9_sent_at and not any_pack_purchased:
