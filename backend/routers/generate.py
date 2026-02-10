@@ -83,7 +83,7 @@ async def select_style_endpoint(request: StyleSelectionRequest):
             )
         
         # Получаем Mini App URL из переменных окружения
-        mini_app_url = os.environ.get("MINI_APP_URL", "https://seeyay-miniapp-445810320877.europe-west4.run.app")
+        mini_app_url = os.environ.get("MINI_APP_URL", "https://seeyay-ai-miniapp-445810320877.europe-west4.run.app")
         
         # Формируем клавиатуру (зависит от режима и опыта пользователя)
         if successful_generations == 0:

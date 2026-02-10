@@ -139,7 +139,7 @@ class TelegramNotificationService:
         # Добавляем кнопку для оплаты
         reply_markup = {
             "inline_keyboard": [[
-                {"text": "💳 Оплатить подписку", "web_app": {"url": "https://seeyay-miniapp-445810320877.europe-west4.run.app"}}
+                {"text": "💳 Оплатить подписку", "web_app": {"url": "https://seeyay-ai-miniapp-445810320877.europe-west4.run.app"}}
             ]]
         }
         
@@ -160,7 +160,7 @@ class TelegramNotificationService:
         # Добавляем кнопку для оплаты
         reply_markup = {
             "inline_keyboard": [[
-                {"text": "🔄 Возобновить подписку", "web_app": {"url": "https://seeyay-miniapp-445810320877.europe-west4.run.app"}}
+                {"text": "🔄 Возобновить подписку", "web_app": {"url": "https://seeyay-ai-miniapp-445810320877.europe-west4.run.app"}}
             ]]
         }
         
@@ -179,7 +179,7 @@ class TelegramNotificationService:
         # Добавляем кнопку для оплаты
         reply_markup = {
             "inline_keyboard": [[
-                {"text": "🎉 Оплатить подписку (-25%)", "web_app": {"url": "https://seeyay-miniapp-445810320877.europe-west4.run.app"}}
+                {"text": "🎉 Оплатить подписку (-25%)", "web_app": {"url": "https://seeyay-ai-miniapp-445810320877.europe-west4.run.app"}}
             ]]
         }
         
@@ -199,7 +199,7 @@ class TelegramNotificationService:
         # Добавляем кнопку для оплаты
         reply_markup = {
             "inline_keyboard": [[
-                {"text": "🎉 Оплатить подписку (-25%)", "web_app": {"url": "https://seeyay-miniapp-445810320877.europe-west4.run.app"}}
+                {"text": "🎉 Оплатить подписку (-25%)", "web_app": {"url": "https://seeyay-ai-miniapp-445810320877.europe-west4.run.app"}}
             ]]
         }
         
@@ -220,7 +220,7 @@ class TelegramNotificationService:
         # Добавляем кнопку для пополнения
         reply_markup = {
             "inline_keyboard": [[
-                {"text": "💰 Пополнить баланс", "web_app": {"url": "https://seeyay-miniapp-445810320877.europe-west4.run.app"}}
+                {"text": "💰 Пополнить баланс", "web_app": {"url": "https://seeyay-ai-miniapp-445810320877.europe-west4.run.app"}}
             ]]
         }
         

@@ -4,7 +4,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # API URL for production
-ARG VITE_API_URL=https://seeyay-api-445810320877.europe-west4.run.app
+ARG VITE_API_URL=https://seeyay-ai-api-445810320877.europe-west4.run.app
 ENV VITE_API_URL=$VITE_API_URL
 
 # Copy package files

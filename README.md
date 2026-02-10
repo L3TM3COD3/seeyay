@@ -131,8 +131,8 @@ Seeyay.ai/
 
 ```bash
 # Создайте новый проект или выберите существующий
-gcloud projects create seeyay-ai --name="СИЯЙ AI"
-gcloud config set project seeyay-ai
+gcloud projects create seeyay-ai-tg-bot --name="СИЯЙ AI"
+gcloud config set project seeyay-ai-tg-bot
 ```
 
 ### 2. Включение API
@@ -181,8 +181,8 @@ gcloud firestore databases create --location=europe-west4
 ⚠️ **ВАЖНО:** Перед деплоем на production обязательно выполните Pre-Production Checklist ниже!
 
 ```bash
-# Деплой на production (seeyay-ai)
-gcloud builds submit . --config=cloudbuild.yaml --project=seeyay-ai
+# Деплой на production (seeyay-ai-tg-bot)
+gcloud builds submit . --config=cloudbuild.yaml --project=seeyay-ai-tg-bot
 ```
 
 #### ⚠️ Pre-Production Checklist
@@ -344,7 +344,7 @@ gcloud builds submit . --config=cloudbuild-dev.yaml --project=seeyay-ai-dev
 
 ```bash
 # Production
-gcloud builds submit . --config=cloudbuild.yaml --project=seeyay-ai
+gcloud builds submit . --config=cloudbuild.yaml --project=seeyay-ai-tg-bot
 
 # Development  
 gcloud builds submit . --config=cloudbuild-dev.yaml --project=seeyay-ai-dev
@@ -358,9 +358,9 @@ gcloud builds submit . --config=cloudbuild-dev.yaml --project=seeyay-ai-dev
 
 | Параметр | Production | Development |
 |----------|-----------|-------------|
-| **GCP Project** | `seeyay-ai` | `seeyay-ai-dev` |
+| **GCP Project** | `seeyay-ai-tg-bot` | `seeyay-ai-dev` |
 | **Project Number** | `445810320877` | `269162169877` |
-| **Telegram Bot** | @seeyay_bot | @siay_ai_bot |
+| **Telegram Bot** | @seeyay_ai_bot | @siay_ai_bot |
 | **Firestore** | Отдельная БД | Отдельная БД |
 | **Cloud Build** | `cloudbuild.yaml` | `cloudbuild-dev.yaml` |
 
@@ -424,7 +424,7 @@ gcloud builds submit . --config=cloudbuild-dev.yaml --project=seeyay-ai-dev
 # 4. Когда всё ОК — мержим в main и деплоим на prod
 git checkout main
 git merge dev
-gcloud builds submit . --config=cloudbuild.yaml --project=seeyay-ai
+gcloud builds submit . --config=cloudbuild.yaml --project=seeyay-ai-tg-bot
 ```
 
 ### Безопасность кода
@@ -551,9 +551,9 @@ gcloud builds submit . --config=cloudbuild.yaml --project=seeyay-ai
 
 | Сервис | Описание | Memory | Min/Max | Секреты |
 |--------|----------|--------|---------|---------|
-| seeyay-bot | Telegram бот | 512Mi | 1/3 | telegram-bot-token |
-| seeyay-api | Backend API | 1Gi | 0/10 | cloudpayments-* |
-| seeyay-miniapp | React Mini App | 256Mi | 0/5 | - |
+| seeyay-ai-tg-bot | Telegram бот | 512Mi | 1/3 | telegram-bot-token |
+| seeyay-ai-api | Backend API | 1Gi | 0/10 | cloudpayments-* |
+| seeyay-ai-miniapp | React Mini App | 256Mi | 0/5 | - |
 
 ## 📝 После деплоя
 

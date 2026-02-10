@@ -144,7 +144,7 @@ async def delayed_messages(authorization: Optional[str] = Header(None)):
         db = firestore.AsyncClient()
         
         # Определяем Mini App URL из переменной окружения
-        mini_app_url = os.getenv("MINI_APP_URL", "https://seeyay-miniapp-445810320877.europe-west4.run.app")
+        mini_app_url = os.getenv("MINI_APP_URL", "https://seeyay-ai-miniapp-445810320877.europe-west4.run.app")
         
         results = {
             "m2": {"total": len(users_by_type["m2"]), "sent": 0, "errors": 0},
@@ -153,6 +153,8 @@ async def delayed_messages(authorization: Optional[str] = Header(None)):
             "m10_2": {"total": len(users_by_type["m10_2"]), "sent": 0, "errors": 0},
             "m12": {"total": len(users_by_type["m12"]), "sent": 0, "errors": 0}
         }
+        
+        logger.info(f"Delayed messages check: m2={results['m2']['total']}, m5={results['m5']['total']}, m10_1={results['m10_1']['total']}, m10_2={results['m10_2']['total']}, m12={results['m12']['total']}")
         
         # Отправляем m2
         for user in users_by_type["m2"]:

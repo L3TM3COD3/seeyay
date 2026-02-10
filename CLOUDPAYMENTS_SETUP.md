@@ -67,7 +67,7 @@ CloudPayments требует HTTPS для webhook'ов. Настройте до�
 gcloud scheduler jobs create http daily-energy-job \
     --schedule="0 21 * * *" \
     --time-zone="UTC" \
-    --uri="https://seeyay-api-445810320877.europe-west4.run.app/api/cron/daily-energy" \
+    --uri="https://seeyay-ai-api-445810320877.europe-west4.run.app/api/cron/daily-energy" \
     --http-method=POST \
     --headers="Authorization=Bearer YOUR_CRON_AUTH_TOKEN" \
     --location=europe-west4
@@ -81,7 +81,7 @@ gcloud scheduler jobs create http daily-energy-job \
 gcloud scheduler jobs create http subscription-retry-job \
     --schedule="*/30 * * * *" \
     --time-zone="UTC" \
-    --uri="https://seeyay-api-445810320877.europe-west4.run.app/api/cron/subscription-retry" \
+    --uri="https://seeyay-ai-api-445810320877.europe-west4.run.app/api/cron/subscription-retry" \
     --http-method=POST \
     --headers="Authorization=Bearer YOUR_CRON_AUTH_TOKEN" \
     --location=europe-west4
@@ -95,7 +95,7 @@ gcloud scheduler jobs create http subscription-retry-job \
 gcloud scheduler jobs create http subscription-status-job \
     --schedule="0 * * * *" \
     --time-zone="UTC" \
-    --uri="https://seeyay-api-445810320877.europe-west4.run.app/api/cron/subscription-status" \
+    --uri="https://seeyay-ai-api-445810320877.europe-west4.run.app/api/cron/subscription-status" \
     --http-method=POST \
     --headers="Authorization=Bearer YOUR_CRON_AUTH_TOKEN" \
     --location=europe-west4

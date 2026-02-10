@@ -6,9 +6,9 @@ set -e
 # Configuration
 PROJECT_ID="${GCP_PROJECT_ID:-your-project-id}"
 REGION="${GCP_REGION:-europe-west4}"
-BOT_SERVICE="seeyay-bot"
-API_SERVICE="seeyay-api"
-MINIAPP_SERVICE="seeyay-miniapp"
+BOT_SERVICE="seeyay-ai-tg-bot"
+API_SERVICE="seeyay-ai-api"
+MINIAPP_SERVICE="seeyay-ai-miniapp"
 
 echo "🚀 Deploying СИЯЙ AI to Google Cloud Run"
 echo "Project: $PROJECT_ID"

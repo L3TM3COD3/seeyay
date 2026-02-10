@@ -3,9 +3,9 @@
 
 substitutions:
   _REGION: europe-west4
-  _BOT_SERVICE: seeyay-bot
-  _API_SERVICE: seeyay-api
-  _MINIAPP_SERVICE: seeyay-miniapp
+  _BOT_SERVICE: seeyay-ai-tg-bot
+  _API_SERVICE: seeyay-ai-api
+  _MINIAPP_SERVICE: seeyay-ai-miniapp
 
 steps:
   # ==================== Build Bot Service ====================
@@ -92,7 +92,7 @@ steps:
       - '--max-instances'
       - '3'
       - '--set-env-vars'
-      - 'GCP_PROJECT_ID=$PROJECT_ID,GCP_LOCATION=${_REGION},MINI_APP_URL=https://seeyay-miniapp-445810320877.${_REGION}.run.app,WEBHOOK_URL=https://${_BOT_SERVICE}-445810320877.${_REGION}.run.app'
+      - 'GCP_PROJECT_ID=$PROJECT_ID,GCP_LOCATION=${_REGION},MINI_APP_URL=https://seeyay-ai-miniapp-445810320877.${_REGION}.run.app,WEBHOOK_URL=https://seeyay-ai-tg-bot-445810320877.${_REGION}.run.app'
       - '--set-secrets'
       - 'BOT_TOKEN=telegram-bot-token:latest'
       - '--allow-unauthenticated'
