@@ -24,11 +24,24 @@ logger = logging.getLogger(__name__)
 def verify_cron_auth(authorization: Optional[str]) -> bool:
     """
     Проверка, что запрос пришел от Cloud Scheduler
-    В production нужно проверять токен или IP
+    Проверяет Bearer токен из Authorization заголовка
     """
-    # TODO: Добавить реальную проверку токена
-    # Для начала просто проверяем наличие заголовка
-    return authorization is not None
+    if not authorization:
+        return False
+    
+    # Получаем токен из Secret Manager
+    try:
+        expected_token = get_secret("cron-auth-token")
+        
+        # Проверяем формат "Bearer TOKEN"
+        if not authorization.startswith("Bearer "):
+            return False
+        
+        token = authorization.replace("Bearer ", "")
+        return token == expected_token
+    except Exception as e:
+        logger.error(f"Error verifying cron auth: {e}")
+        return False
 
 
 @router.post("/daily-energy")
