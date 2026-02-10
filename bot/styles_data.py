@@ -17,6 +17,7 @@ STYLES = [
         "name": "Ледяной куб",
         "category": "effect",
         "image": "/images/styles/ice_cube.jpg",
+        "cover_image": None,  # Plan 2: Telegram file_id for cover photo (when ready)
         "prompt": """TASK: Photo edit (image-to-image). Use the uploaded photo as the ONLY truth source.
 
 ABSOLUTE IDENTITY LOCK (CRITICAL):
@@ -40,6 +41,7 @@ No face change, no body reshaping, no new person, no extra limbs/fingers, no pla
         "name": "Зимний триптих",
         "category": "look",
         "image": "/images/styles/winter_triptych.jpg",
+        "cover_image": None,  # Plan 2: Telegram file_id for cover photo (when ready)
         "prompt": """TASK: Generate a single ultra-detailed cinematic triptych collage (one image containing 3 connected frames). Use the uploaded photo as the ONLY identity reference for the woman.
 
 ABSOLUTE IDENTITY LOCK (CRITICAL):
@@ -63,6 +65,7 @@ No face change, no different person, no extra limbs/fingers, no stylization (no 
         "name": "Скоро...",
         "category": "new",
         "image": "/images/styles/placeholder.jpg",
+        "cover_image": None,  # Plan 2: Telegram file_id for cover photo (when ready)
         "placeholder": True,
         "prompt": "",
         "system_instruction": "",
@@ -72,6 +75,7 @@ No face change, no different person, no extra limbs/fingers, no stylization (no 
         "name": "Скоро...",
         "category": "new",
         "image": "/images/styles/placeholder.jpg",
+        "cover_image": None,  # Plan 2: Telegram file_id for cover photo (when ready)
         "placeholder": True,
         "prompt": "",
         "system_instruction": "",

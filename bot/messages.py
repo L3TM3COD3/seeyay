@@ -3,8 +3,11 @@ Message templates for the bot message chain
 All messages use HTML parse_mode
 """
 
-def m1_welcome() -> str:
-    """m1: Приветственное сообщение"""
+def m1_welcome(video_file_id: str = None) -> str:
+    """
+    m1: Приветственное сообщение
+    video_file_id: Optional Telegram file_id for intro video (Plan 2)
+    """
     return """Привет, это Сияй AI – твоя личная ИИ-фотостудия в кармане.
 
 <b>Наши фишки:</b>

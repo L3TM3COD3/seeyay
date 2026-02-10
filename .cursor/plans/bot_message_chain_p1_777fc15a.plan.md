@@ -35,6 +35,7 @@ todos:
   - id: p1-deploy-test
     content: Deploy to dev and verify the full synchronous flow works
     status: completed
+isProject: false
 ---
 
 # Plan 1: Bot Message Chain -- Synchronous Flow
@@ -81,7 +82,7 @@ Implement all messages that fire as a **direct response** to user actions (no ti
 
 ### 1. Firestore: new user fields and helpers
 
-In [`backend/firestore.py`](backend/firestore.py) `create_user()` -- add default fields:
+In `[backend/firestore.py](backend/firestore.py)` `create_user()` -- add default fields:
 
 ```python
 "successful_generations": 0,
@@ -93,7 +94,7 @@ In [`backend/firestore.py`](backend/firestore.py) `create_user()` -- add default
 "m7_3_sent": False,
 ```
 
-In [`bot/firestore.py`](bot/firestore.py) -- add helper functions:
+In `[bot/firestore.py](bot/firestore.py)` -- add helper functions:
 
 - `increment_successful_generations(telegram_id)` -- atomic increment, returns new count
 - `set_user_flag(telegram_id, flag_name, value)` -- generic flag setter
@@ -137,7 +138,7 @@ Replace existing keyboards with:
 
 Template buttons use `callback_data="tpl:{style_id}"`. Placeholder buttons use `callback_data="tpl:placeholder"`.
 
-### 4. Rewrite: [`bot/handlers/start.py`](bot/handlers/start.py)
+### 4. Rewrite: `[bot/handlers/start.py](bot/handlers/start.py)`
 
 - `/start` -- call `ensure_user_exists()`, send m1 with `kb_template_grid()`
 - `/menu` -- send m13 with `kb_menu()`
@@ -149,14 +150,14 @@ Handles all template/mode callbacks:
 
 - `tpl:{style_id}` -- look up style, check `successful_generations`:
   - 0 -> send m3 + `kb_config_onboarding`, set FSM `awaiting_photo` with style data
-  - >=1 -> send m4.1 + `kb_config_normal`, set FSM `awaiting_photo`
+  - > =1 -> send m4.1 + `kb_config_normal`, set FSM `awaiting_photo`
 - `tpl:placeholder` -> answer "Скоро!"
 - `toggle_pro:{style_id}` -> send m4.2 + `kb_config_pro`, update FSM mode to pro
 - `toggle_normal:{style_id}` -> send m4.1 + `kb_config_normal`, update FSM mode to normal
 - `change_template` -> open miniapp or send link
-- Also absorb current [`bot/handlers/webapp.py`](bot/handlers/webapp.py) logic (mini app data handler) adapted to send m3/m4.x instead of old message
+- Also absorb current `[bot/handlers/webapp.py](bot/handlers/webapp.py)` logic (mini app data handler) adapted to send m3/m4.x instead of old message
 
-### 6. Rewrite: [`bot/handlers/photo.py`](bot/handlers/photo.py)
+### 6. Rewrite: `[bot/handlers/photo.py](bot/handlers/photo.py)`
 
 **PRO cost change: 2 -> 6 energy**
 
@@ -165,21 +166,17 @@ Flow when photo is received:
 1. Get style/mode from FSM (or pending selection)
 2. Calculate cost: `6 if mode == "pro" else 1`
 3. Check balance:
-
-   - If insufficient: check conditions -> send m9 or m11 (see below), return to idle
-
+  - If insufficient: check conditions -> send m9 or m11 (see below), return to idle
 4. Deduct energy atomically
 5. Send m6 ("Генерируем...")
 6. Call Vertex AI `generate_single()`
 7. Delete m6 status message
 8. On success:
-
-   - `increment_successful_generations()` -> get new count
-   - count == 1 and m7_1 not sent -> send m7.1, mark m7_1_sent
-   - count == 2 and m7_2 not sent -> send m7.2, mark m7_2_sent
-   - count == 3 and m7_3 not sent -> send m7.3, mark m7_3_sent
-   - otherwise -> send m8
-
+  - `increment_successful_generations()` -> get new count
+  - count == 1 and m7_1 not sent -> send m7.1, mark m7_1_sent
+  - count == 2 and m7_2 not sent -> send m7.2, mark m7_2_sent
+  - count == 3 and m7_3 not sent -> send m7.3, mark m7_3_sent
+  - otherwise -> send m8
 9. On failure: refund energy, send error
 
 Insufficient energy logic (step 3):
@@ -204,17 +201,17 @@ Handles purchase and menu callbacks:
 - `back:{target}` -- navigate back to the message that opened m14
 - `contact_manager` -- send support contact info
 
-### 8. Update: [`bot/handlers/__init__.py`](bot/handlers/__init__.py)
+### 8. Update: `[bot/handlers/__init__.py](bot/handlers/__init__.py)`
 
 Register new routers: `template_selection_router`, `energy_router`.
 
-### 9. Update: [`bot/main.py`](bot/main.py)
+### 9. Update: `[bot/main.py](bot/main.py)`
 
 Import and include new routers in the dispatcher. Order matters -- template_selection before photo (callbacks vs message handlers).
 
 ### 10. Backend: new packs
 
-In [`backend/routers/payments.py`](backend/routers/payments.py) add to `GENERATION_PACKS`:
+In `[backend/routers/payments.py](backend/routers/payments.py)` add to `GENERATION_PACKS`:
 
 ```python
 {"id": "pack_starter", "energy": 100, "price": 990, "currency": "RUB", "badge": "стартер-пак", "one_time": True},
@@ -223,11 +220,11 @@ In [`backend/routers/payments.py`](backend/routers/payments.py) add to `GENERATI
 
 ### 11. Placeholder styles
 
-In [`bot/styles_data.py`](bot/styles_data.py) add 2 placeholder entries (id `placeholder_3`, `placeholder_4`) with `"placeholder": True` flag and no prompt. The keyboard builder references these for the 2 extra template buttons. When selected, bot answers "Этот шаблон скоро появится!".
+In `[bot/styles_data.py](bot/styles_data.py)` add 2 placeholder entries (id `placeholder_3`, `placeholder_4`) with `"placeholder": True` flag and no prompt. The keyboard builder references these for the 2 extra template buttons. When selected, bot answers "Этот шаблон скоро появится!".
 
 ### 12. States
 
-[`bot/states.py`](bot/states.py) -- keep existing 3 states (idle, awaiting_photo, generating). No new states needed; all routing is via callback_data and Firestore flags.
+`[bot/states.py](bot/states.py)` -- keep existing 3 states (idle, awaiting_photo, generating). No new states needed; all routing is via callback_data and Firestore flags.
 
 ---
 
@@ -241,3 +238,4 @@ In [`bot/styles_data.py`](bot/styles_data.py) add 2 placeholder entries (id `pla
 - Spinning emoji animation in m6
 - Video/image media assets for m1, m2, m3, etc.
 - Cron endpoint for delayed messages
+

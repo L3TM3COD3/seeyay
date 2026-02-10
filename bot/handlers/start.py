@@ -8,7 +8,9 @@ from bot.keyboards import kb_template_grid, kb_menu
 from bot.messages import m1_welcome, m13_main_menu
 from bot.states import UserState
 from bot.config import get_settings
-from bot.firestore import ensure_user_exists, get_user
+from bot.firestore import ensure_user_exists, get_user, set_user_timestamp
+from datetime import datetime, set_user_timestamp
+from datetime import datetime
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -20,8 +22,17 @@ async def cmd_start(message: Message, state: FSMContext):
     telegram_id = message.from_user.id
     username = message.from_user.username or message.from_user.first_name or "пользователь"
     
+    # Проверяем, существует ли пользователь
+    user = await get_user(telegram_id)
+    is_new_user = user is None
+    
     # Создаём пользователя если не существует
     await ensure_user_exists(telegram_id, username)
+    
+    # Для новых пользователей записываем started_at (Plan 2)
+    if is_new_user:
+        await set_user_timestamp(telegram_id, "started_at", datetime.utcnow())
+        logger.info(f"New user {telegram_id}, set started_at timestamp")
     
     # Сбрасываем состояние
     await state.clear()

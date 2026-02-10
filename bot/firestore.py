@@ -182,6 +182,21 @@ async def set_user_flag(telegram_id: int, flag_name: str, value: bool) -> bool:
         return False
 
 
+async def set_user_timestamp(telegram_id: int, field: str, value: datetime) -> bool:
+    """
+    Установить timestamp поля пользователя (например started_at, template_selected_at и т.д.)
+    Returns True on success, False on error
+    """
+    try:
+        db = get_db()
+        doc_ref = db.collection("users").document(str(telegram_id))
+        await doc_ref.update({field: value})
+        return True
+    except Exception as e:
+        logger.error(f"Error setting user timestamp {field}: {e}")
+        return False
+
+
 async def ensure_user_exists(telegram_id: int, username: Optional[str] = None) -> Dict[str, Any]:
     """
     Проверить существование пользователя, создать если не существует
@@ -210,6 +225,17 @@ async def ensure_user_exists(telegram_id: int, username: Optional[str] = None) -
             "m7_1_sent": False,
             "m7_2_sent": False,
             "m7_3_sent": False,
+            # Delayed messages fields (Plan 2)
+            "started_at": None,
+            "template_selected_at": None,
+            "last_generation_at": None,
+            "m2_sent": False,
+            "m5_sent": False,
+            "m10_1_sent": False,
+            "m10_2_sent": False,
+            "m12_sent": False,
+            "m9_sent_at": None,
+            "any_pack_purchased": False,
         }
         
         await doc_ref.set(user_data)

@@ -479,9 +479,9 @@ gcloud builds submit . --config=cloudbuild.yaml --project=seeyay-ai
 | POST | /api/cron/subscription-retry | Retry неудачных платежей | Каждые 30 мин |
 | POST | /api/cron/subscription-status | Обновление статусов подписок | Каждый час |
 
-## 🎨 Стили
+## 🎨 Стили (шаблоны)
 
-Стили определены в `backend/styles_data.py` и `bot/styles_data.py`. Каждый стиль содержит:
+Стили (шаблоны) определены в `backend/styles_data.py` и `bot/styles_data.py`. Каждый стиль содержит:
 - `id` - уникальный идентификатор
 - `name` - название на русском
 - `category` - категория (effect, look, new, trending, for_her, for_him)

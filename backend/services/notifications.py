@@ -4,8 +4,21 @@ Notification Service - отправка уведомлений в Telegram
 import aiohttp
 from typing import Optional
 import logging
+import sys
+import os
+
+# Add bot directory to path to import messages
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+from bot.messages import (
+    m2_reminder,
+    m5_photo_reminder,
+    m10_1_tips_after_first,
+    m10_2_pro_suggestion,
+    m12_downsell
+)
 
 from backend.secrets import get_bot_token
+from backend.keyboards_raw import kb_template_grid_raw, kb_downsell_raw
 
 logger = logging.getLogger(__name__)
 
@@ -229,6 +242,47 @@ class TelegramNotificationService:
             f"Средства вернутся на вашу карту в течение 5-10 рабочих дней."
         )
         await self.send_message(telegram_id, text)
+    
+    # ==================== Delayed Messages (Plan 2) ====================
+    
+    async def send_m2_reminder(self, telegram_id: int, mini_app_url: str) -> bool:
+        """
+        m2: Напоминание через 1 час после приветствия (если нет генераций)
+        """
+        text = m2_reminder()
+        keyboard = kb_template_grid_raw(mini_app_url)
+        return await self.send_message(telegram_id, text, reply_markup=keyboard)
+    
+    async def send_m5_photo_reminder(self, telegram_id: int) -> bool:
+        """
+        m5: Напоминание прислать фото через 7 мин после выбора шаблона
+        """
+        text = m5_photo_reminder()
+        return await self.send_message(telegram_id, text)
+    
+    async def send_m10_1_tips(self, telegram_id: int, mini_app_url: str) -> bool:
+        """
+        m10.1: Советы после 1-й генерации (через 60 мин)
+        """
+        text = m10_1_tips_after_first()
+        keyboard = kb_template_grid_raw(mini_app_url)
+        return await self.send_message(telegram_id, text, reply_markup=keyboard)
+    
+    async def send_m10_2_pro_suggestion(self, telegram_id: int, mini_app_url: str) -> bool:
+        """
+        m10.2: Предложение попробовать PRO (через 60 мин после 2-й генерации)
+        """
+        text = m10_2_pro_suggestion()
+        keyboard = kb_template_grid_raw(mini_app_url)
+        return await self.send_message(telegram_id, text, reply_markup=keyboard)
+    
+    async def send_m12_downsell(self, telegram_id: int) -> bool:
+        """
+        m12: Пробный пакет (через 24ч после m9 если не купил)
+        """
+        text = m12_downsell()
+        keyboard = kb_downsell_raw()
+        return await self.send_message(telegram_id, text, reply_markup=keyboard)
 
 
 # Singleton instance

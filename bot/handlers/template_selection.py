@@ -17,7 +17,9 @@ from bot.messages import (
 )
 from bot.states import UserState
 from bot.styles_data import get_style_by_id
-from bot.firestore import get_user
+from bot.firestore import get_user, set_user_timestamp
+from datetime import datetime, set_user_timestamp
+from datetime import datetime
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -61,6 +63,9 @@ async def handle_template_selection(callback: CallbackQuery, state: FSMContext):
     )
     await state.set_state(UserState.awaiting_photo)
     
+    # Записываем timestamp выбора шаблона (Plan 2)
+    await set_user_timestamp(telegram_id, "template_selected_at", datetime.utcnow())
+    
     # Определяем какое сообщение отправить
     if successful_generations == 0:
         # m3: onboarding конфигурация
@@ -71,11 +76,21 @@ async def handle_template_selection(callback: CallbackQuery, state: FSMContext):
         text = m4_1_config_normal(style_name, 1)
         keyboard = kb_config_normal(style_id)
     
-    await callback.message.answer(
-        text=text,
-        reply_markup=keyboard,
-        parse_mode="HTML"
-    )
+    # Plan 2: Если у стиля есть cover_image, отправляем фото, иначе текст
+    cover_image = style.get("cover_image")
+    if cover_image:
+        await callback.message.answer_photo(
+            photo=cover_image,
+            caption=text,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+    else:
+        await callback.message.answer(
+            text=text,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
     
     logger.info(f"User {telegram_id} selected template {style_id} (gens: {successful_generations})")
 
@@ -183,6 +198,9 @@ async def handle_webapp_data(message: Message, state: FSMContext):
         )
         await state.set_state(UserState.awaiting_photo)
         
+        # Записываем timestamp выбора шаблона (Plan 2)
+        await set_user_timestamp(telegram_id, "template_selected_at", datetime.utcnow())
+        
         # Определяем стоимость
         cost = 6 if mode == "pro" else 1
         
@@ -200,11 +218,24 @@ async def handle_webapp_data(message: Message, state: FSMContext):
             text = m4_1_config_normal(style_name, cost)
             keyboard = kb_config_normal(style_id)
         
-        await message.answer(
-            text=text,
-            reply_markup=keyboard,
-            parse_mode="HTML"
-        )
+        # Plan 2: Получаем стиль для проверки cover_image
+        from bot.styles_data import get_style_by_id
+        style = get_style_by_id(style_id)
+        cover_image = style.get("cover_image") if style else None
+        
+        if cover_image:
+            await message.answer_photo(
+                photo=cover_image,
+                caption=text,
+                reply_markup=keyboard,
+                parse_mode="HTML"
+            )
+        else:
+            await message.answer(
+                text=text,
+                reply_markup=keyboard,
+                parse_mode="HTML"
+            )
         
     except json.JSONDecodeError:
         logger.error("Failed to decode webapp data")

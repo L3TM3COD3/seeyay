@@ -2,6 +2,7 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, BufferedInputFile
 from aiogram.fsm.context import FSMContext
 import aiohttp
+import asyncio
 import logging
 
 from bot.states import UserState
@@ -35,11 +36,36 @@ from bot.firestore import (
     update_user_balance,
     get_user,
     increment_successful_generations,
-    set_user_flag
+    set_user_flag,
+    set_user_timestamp
 )
+from datetime import datetime
 
 router = Router()
 logger = logging.getLogger(__name__)
+
+# Moon phase emoji for m6 animation (Plan 2)
+MOON_PHASES = "🌑🌘🌗🌖🌕🌔🌓🌒"
+
+
+async def animate_moon_emoji(message: Message, stop_event: asyncio.Event):
+    """
+    Анимация смены фаз луны в сообщении m6 (Plan 2)
+    Цикл выполняется пока stop_event не установлен
+    """
+    i = 0
+    base_text = "Генерируем ваше фото…\n\n⏱️ Будет готово через 10–30 секунд"
+    
+    while not stop_event.is_set():
+        phase = MOON_PHASES[i % len(MOON_PHASES)]
+        try:
+            await message.edit_text(f"{phase} {base_text}", parse_mode="HTML")
+        except Exception as e:
+            # Игнорируем ошибки редактирования (например, если сообщение уже удалено)
+            logger.debug(f"Moon animation edit error: {e}")
+            break
+        i += 1
+        await asyncio.sleep(1)
 
 
 def get_settings_instance():
@@ -97,6 +123,8 @@ async def handle_photo(message: Message, state: FSMContext):
                 parse_mode="HTML"
             )
             await set_user_flag(telegram_id, "m9_shown", True)
+            # Записываем timestamp показа m9 (Plan 2)
+            await set_user_timestamp(telegram_id, "m9_sent_at", datetime.utcnow())
         else:
             # Отправляем m11: обычное сообщение о недостатке энергии
             await message.answer(
@@ -124,11 +152,15 @@ async def handle_photo(message: Message, state: FSMContext):
     # Переводим в состояние генерации
     await state.set_state(UserState.generating)
     
-    # Отправляем m6: "Генерируем..."
+    # Отправляем m6: "Генерируем..." с анимацией луны (Plan 2)
     status_message = await message.answer(
         text=m6_generating(),
         parse_mode="HTML"
     )
+    
+    # Запускаем фоновую анимацию луны
+    stop_animation = asyncio.Event()
+    animation_task = asyncio.create_task(animate_moon_emoji(status_message, stop_animation))
     
     try:
         settings = get_settings_instance()
@@ -157,7 +189,13 @@ async def handle_photo(message: Message, state: FSMContext):
             mode=mode
         )
         
-        # Удаляем статусное сообщение
+        # Останавливаем анимацию и удаляем статусное сообщение
+        stop_animation.set()
+        try:
+            await animation_task
+        except Exception:
+            pass
+        
         try:
             await status_message.delete()
         except Exception:
@@ -171,6 +209,9 @@ async def handle_photo(message: Message, state: FSMContext):
             new_count = await increment_successful_generations(telegram_id)
             if new_count is None:
                 new_count = successful_generations + 1  # fallback
+            
+            # Записываем timestamp последней успешной генерации (Plan 2)
+            await set_user_timestamp(telegram_id, "last_generation_at", datetime.utcnow())
             
             logger.info(f"User {telegram_id} now has {new_count} successful generations")
             
@@ -242,6 +283,13 @@ async def handle_photo(message: Message, state: FSMContext):
         
     except Exception as e:
         logger.error(f"Error in photo handler: {e}", exc_info=True)
+        
+        # Останавливаем анимацию при ошибке
+        stop_animation.set()
+        try:
+            await animation_task
+        except Exception:
+            pass
         
         try:
             await status_message.delete()
