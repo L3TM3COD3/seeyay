@@ -57,7 +57,8 @@ class TelegramNotificationService:
                         logger.info(f"Notification sent to user {telegram_id}")
                         return True
                     else:
-                        logger.error(f"Failed to send notification: {response.status}")
+                        error_text = await response.text()
+                        logger.error(f"Failed to send notification to {telegram_id}: {response.status} - {error_text}")
                         return False
                         
         except Exception as e:
