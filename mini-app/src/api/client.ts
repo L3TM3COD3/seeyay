@@ -191,69 +191,23 @@ function getMockData(): { styles: Style[], categories: Category[] } {
   return {
     categories: [
       { id: 'all', name: 'Все' },
-      { id: 'new', name: 'Новое' },
-      { id: 'trending', name: 'Тренды' },
       { id: 'effect', name: 'Эффекты' },
       { id: 'look', name: 'Образ' },
-      { id: 'for_her', name: 'Для неё' },
-      { id: 'for_him', name: 'Для него' },
     ],
     styles: [
       {
-        id: 'balloons',
-        name: 'С шариками',
+        id: 'ice_cube',
+        name: 'Ледяной куб',
         category: 'effect',
-        image: 'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=400',
-        prompt: ''
+        image: 'https://images.unsplash.com/photo-1483664852095-d6cc6870702d?w=400',
+        prompt: 'Ice cube effect'
       },
       {
-        id: 'disneyland',
-        name: 'В Диснейленде',
+        id: 'winter_triptych',
+        name: 'Зимний триптих',
         category: 'look',
-        image: 'https://images.unsplash.com/photo-1597466599360-3b9775841aec?w=400',
-        prompt: ''
-      },
-      {
-        id: 'luxury',
-        name: 'Luxury-стиль',
-        category: 'look',
-        image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400',
-        prompt: ''
-      },
-      {
-        id: 'business',
-        name: 'Деловой стиль',
-        category: 'look',
-        image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400',
-        prompt: ''
-      },
-      {
-        id: 'neon',
-        name: 'Неоновый',
-        category: 'effect',
-        image: 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=400',
-        prompt: ''
-      },
-      {
-        id: 'vintage',
-        name: 'Ретро',
-        category: 'effect',
-        image: 'https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=400',
-        prompt: ''
-      },
-      {
-        id: 'nature',
-        name: 'На природе',
-        category: 'new',
-        image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400',
-        prompt: ''
-      },
-      {
-        id: 'studio',
-        name: 'Студийный',
-        category: 'new',
-        image: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400',
-        prompt: ''
+        image: 'https://images.unsplash.com/photo-1483921020237-2ff51e8e4b22?w=400',
+        prompt: 'Winter triptych collage'
       },
     ]
   };

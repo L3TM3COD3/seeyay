@@ -6,6 +6,14 @@ from typing import Optional
 import logging
 
 from backend.secrets import get_bot_token
+from backend.keyboards_raw import kb_template_grid_raw, kb_downsell_raw
+from backend.messages import (
+    m2_reminder,
+    m5_photo_reminder,
+    m10_1_tips_after_first,
+    m10_2_pro_suggestion,
+    m12_downsell
+)
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +57,8 @@ class TelegramNotificationService:
                         logger.info(f"Notification sent to user {telegram_id}")
                         return True
                     else:
-                        logger.error(f"Failed to send notification: {response.status}")
+                        error_text = await response.text()
+                        logger.error(f"Failed to send notification to {telegram_id}: {response.status} - {error_text}")
                         return False
                         
         except Exception as e:
@@ -130,7 +139,7 @@ class TelegramNotificationService:
         # Добавляем кнопку для оплаты
         reply_markup = {
             "inline_keyboard": [[
-                {"text": "💳 Оплатить подписку", "web_app": {"url": "https://seeyay-miniapp-445810320877.europe-west4.run.app"}}
+                {"text": "💳 Оплатить подписку", "web_app": {"url": "https://seeyay-ai-miniapp-445810320877.europe-west4.run.app"}}
             ]]
         }
         
@@ -151,7 +160,7 @@ class TelegramNotificationService:
         # Добавляем кнопку для оплаты
         reply_markup = {
             "inline_keyboard": [[
-                {"text": "🔄 Возобновить подписку", "web_app": {"url": "https://seeyay-miniapp-445810320877.europe-west4.run.app"}}
+                {"text": "🔄 Возобновить подписку", "web_app": {"url": "https://seeyay-ai-miniapp-445810320877.europe-west4.run.app"}}
             ]]
         }
         
@@ -170,7 +179,7 @@ class TelegramNotificationService:
         # Добавляем кнопку для оплаты
         reply_markup = {
             "inline_keyboard": [[
-                {"text": "🎉 Оплатить подписку (-25%)", "web_app": {"url": "https://seeyay-miniapp-445810320877.europe-west4.run.app"}}
+                {"text": "🎉 Оплатить подписку (-25%)", "web_app": {"url": "https://seeyay-ai-miniapp-445810320877.europe-west4.run.app"}}
             ]]
         }
         
@@ -190,7 +199,7 @@ class TelegramNotificationService:
         # Добавляем кнопку для оплаты
         reply_markup = {
             "inline_keyboard": [[
-                {"text": "🎉 Оплатить подписку (-25%)", "web_app": {"url": "https://seeyay-miniapp-445810320877.europe-west4.run.app"}}
+                {"text": "🎉 Оплатить подписку (-25%)", "web_app": {"url": "https://seeyay-ai-miniapp-445810320877.europe-west4.run.app"}}
             ]]
         }
         
@@ -211,7 +220,7 @@ class TelegramNotificationService:
         # Добавляем кнопку для пополнения
         reply_markup = {
             "inline_keyboard": [[
-                {"text": "💰 Пополнить баланс", "web_app": {"url": "https://seeyay-miniapp-445810320877.europe-west4.run.app"}}
+                {"text": "💰 Пополнить баланс", "web_app": {"url": "https://seeyay-ai-miniapp-445810320877.europe-west4.run.app"}}
             ]]
         }
         
@@ -229,6 +238,47 @@ class TelegramNotificationService:
             f"Средства вернутся на вашу карту в течение 5-10 рабочих дней."
         )
         await self.send_message(telegram_id, text)
+    
+    # ==================== Delayed Messages (Plan 2) ====================
+    
+    async def send_m2_reminder(self, telegram_id: int, mini_app_url: str) -> bool:
+        """
+        m2: Напоминание через 1 час после приветствия (если нет генераций)
+        """
+        text = m2_reminder()
+        keyboard = kb_template_grid_raw(mini_app_url)
+        return await self.send_message(telegram_id, text, reply_markup=keyboard)
+    
+    async def send_m5_photo_reminder(self, telegram_id: int) -> bool:
+        """
+        m5: Напоминание прислать фото через 7 мин после выбора шаблона
+        """
+        text = m5_photo_reminder()
+        return await self.send_message(telegram_id, text)
+    
+    async def send_m10_1_tips(self, telegram_id: int, mini_app_url: str) -> bool:
+        """
+        m10.1: Советы после 1-й генерации (через 60 мин)
+        """
+        text = m10_1_tips_after_first()
+        keyboard = kb_template_grid_raw(mini_app_url)
+        return await self.send_message(telegram_id, text, reply_markup=keyboard)
+    
+    async def send_m10_2_pro_suggestion(self, telegram_id: int, mini_app_url: str) -> bool:
+        """
+        m10.2: Предложение попробовать PRO (через 60 мин после 2-й генерации)
+        """
+        text = m10_2_pro_suggestion()
+        keyboard = kb_template_grid_raw(mini_app_url)
+        return await self.send_message(telegram_id, text, reply_markup=keyboard)
+    
+    async def send_m12_downsell(self, telegram_id: int) -> bool:
+        """
+        m12: Пробный пакет (через 24ч после m9 если не купил)
+        """
+        text = m12_downsell()
+        keyboard = kb_downsell_raw()
+        return await self.send_message(telegram_id, text, reply_markup=keyboard)
 
 
 # Singleton instance

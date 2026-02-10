@@ -50,7 +50,25 @@ async def create_user(telegram_id: int, username: Optional[str] = None) -> Dict[
         "username": username,
         "plan": "free",
         "balance": 3,  # Free tier starts with 3 generations
-        "created_at": datetime.utcnow()
+        "created_at": datetime.utcnow(),
+        "successful_generations": 0,
+        "is_new_user": True,
+        "starter_pack_purchased": False,
+        "m9_shown": False,
+        "m7_1_sent": False,
+        "m7_2_sent": False,
+        "m7_3_sent": False,
+        # Delayed messages fields (Plan 2)
+        "started_at": None,
+        "template_selected_at": None,
+        "last_generation_at": None,
+        "m2_sent": False,
+        "m5_sent": False,
+        "m10_1_sent": False,
+        "m10_2_sent": False,
+        "m12_sent": False,
+        "m9_sent_at": None,
+        "any_pack_purchased": False,
     }
     
     await doc_ref.set(user_data)
@@ -249,6 +267,7 @@ async def deduct_energy(telegram_id: int, amount: int) -> Optional[Dict[str, Any
 async def give_daily_energy(telegram_id: int) -> Optional[Dict[str, Any]]:
     """
     Начислить ежедневную энергию пользователю на free плане (1 энергия)
+    Начисляется только если баланс = 0
     """
     db = get_db()
     doc_ref = db.collection("users").document(str(telegram_id))
@@ -264,10 +283,14 @@ async def give_daily_energy(telegram_id: int) -> Optional[Dict[str, Any]]:
     if plan != "free":
         return None
     
-    # Обновляем баланс и время последней выдачи
+    # Проверяем баланс - начисляем только если 0
     current_balance = user_data.get("balance", 0)
+    if current_balance > 0:
+        return None  # Не начисляем если есть энергия
+    
+    # Обновляем баланс и время последней выдачи
     await doc_ref.update({
-        "balance": current_balance + 1,
+        "balance": 1,
         "daily_energy_given_at": datetime.utcnow()
     })
     
@@ -280,11 +303,12 @@ async def give_daily_energy(telegram_id: int) -> Optional[Dict[str, Any]]:
 async def get_free_plan_users_for_daily_energy() -> List[Dict[str, Any]]:
     """
     Получить пользователей на free плане для начисления ежедневной энергии
+    Только пользователи с balance = 0
     """
     db = get_db()
     
-    # Получаем всех пользователей на free плане
-    query = db.collection("users").where("plan", "==", "free")
+    # Получаем всех пользователей на free плане с нулевым балансом
+    query = db.collection("users").where("plan", "==", "free").where("balance", "==", 0)
     docs = await query.get()
     
     users = []
@@ -511,3 +535,92 @@ async def get_suspended_users_for_expiry() -> List[Dict[str, Any]]:
                 users_to_expire.append(data)
     
     return users_to_expire
+
+
+# ==================== Delayed Messages (Plan 2) ====================
+
+def _to_naive_utc(dt) -> datetime:
+    """Convert datetime to naive UTC (remove timezone info)"""
+    if dt is None:
+        return None
+    if hasattr(dt, 'tzinfo') and dt.tzinfo is not None:
+        # Convert to UTC and remove timezone
+        return dt.replace(tzinfo=None)
+    return dt
+
+async def get_users_for_delayed_messages() -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Получить пользователей для отправки отложенных сообщений (m2, m5, m10.1, m10.2, m12)
+    Returns dict with message type as key and list of users as value
+    """
+    db = get_db()
+    docs = await db.collection("users").get()
+    
+    now = datetime.utcnow()
+    results = {
+        "m2": [],
+        "m5": [],
+        "m10_1": [],
+        "m10_2": [],
+        "m12": []
+    }
+    
+    for doc in docs:
+        data = doc.to_dict()
+        telegram_id = int(doc.id)
+        data["telegram_id"] = telegram_id
+        
+        # m2: через 1 час после started_at, если нет генераций
+        if not data.get("m2_sent", False):
+            started_at = _to_naive_utc(data.get("started_at"))
+            successful_generations = data.get("successful_generations", 0)
+            
+            if started_at and successful_generations == 0:
+                time_since_start = (now - started_at).total_seconds()
+                if time_since_start >= 3600:  # 1 час
+                    results["m2"].append(data)
+        
+        # m5: через 7 мин после template_selected_at, если < 3 генераций и не было новых генераций
+        if not data.get("m5_sent", False):
+            template_selected_at = _to_naive_utc(data.get("template_selected_at"))
+            last_generation_at = _to_naive_utc(data.get("last_generation_at"))
+            successful_generations = data.get("successful_generations", 0)
+            
+            if template_selected_at and successful_generations < 3:
+                time_since_selection = (now - template_selected_at).total_seconds()
+                # Проверяем, что либо не было генераций, либо генерация была до выбора шаблона
+                if time_since_selection >= 420:  # 7 минут
+                    if not last_generation_at or template_selected_at > last_generation_at:
+                        results["m5"].append(data)
+        
+        # m10.1: через 60 мин после last_generation_at, если ровно 1 генерация
+        if not data.get("m10_1_sent", False):
+            last_generation_at = _to_naive_utc(data.get("last_generation_at"))
+            successful_generations = data.get("successful_generations", 0)
+            
+            if last_generation_at and successful_generations == 1:
+                time_since_gen = (now - last_generation_at).total_seconds()
+                if time_since_gen >= 3600:  # 60 минут
+                    results["m10_1"].append(data)
+        
+        # m10.2: через 60 мин после last_generation_at, если ровно 2 генерации
+        if not data.get("m10_2_sent", False):
+            last_generation_at = _to_naive_utc(data.get("last_generation_at"))
+            successful_generations = data.get("successful_generations", 0)
+            
+            if last_generation_at and successful_generations == 2:
+                time_since_gen = (now - last_generation_at).total_seconds()
+                if time_since_gen >= 3600:  # 60 минут
+                    results["m10_2"].append(data)
+        
+        # m12: через 24 часа после m9_sent_at, если не купил пакеты
+        if not data.get("m12_sent", False):
+            m9_sent_at = _to_naive_utc(data.get("m9_sent_at"))
+            any_pack_purchased = data.get("any_pack_purchased", False)
+            
+            if m9_sent_at and not any_pack_purchased:
+                time_since_m9 = (now - m9_sent_at).total_seconds()
+                if time_since_m9 >= 86400:  # 24 часа
+                    results["m12"].append(data)
+    
+    return results

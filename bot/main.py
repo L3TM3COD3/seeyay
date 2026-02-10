@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import os
 import sys
@@ -26,34 +25,31 @@ async def health_check(request):
 async def webhook_handler(request):
     """Обработчик webhook запросов от Telegram"""
     global bot, dp, bot_initialized
-    # region agent log
-    import json;open(r'c:\PetProjects\Seeyay.ai\.cursor\debug.log','a',encoding='utf-8').write(json.dumps({'location':'bot/main.py:27','message':'webhook_handler called','data':{'bot_initialized':bot_initialized},'timestamp':__import__('time').time()*1000,'sessionId':'debug-session','runId':'run1','hypothesisId':'E'})+'\n')
-    # endregion
     
     if not bot_initialized:
-        # region agent log
-        import json;open(r'c:\PetProjects\Seeyay.ai\.cursor\debug.log','a',encoding='utf-8').write(json.dumps({'location':'bot/main.py:31','message':'bot NOT initialized - returning 503','data':{},'timestamp':__import__('time').time()*1000,'sessionId':'debug-session','runId':'run1','hypothesisId':'E'})+'\n')
-        # endregion
         return web.Response(text="Bot not initialized", status=503)
     
     try:
         from aiogram.types import Update
+        import json
         data = await request.json()
-        # region agent log
-        import json;open(r'c:\PetProjects\Seeyay.ai\.cursor\debug.log','a',encoding='utf-8').write(json.dumps({'location':'bot/main.py:37','message':'received update data','data':{'has_message':('message' in data),'has_callback':('callback_query' in data)},'timestamp':__import__('time').time()*1000,'sessionId':'debug-session','runId':'run1','hypothesisId':'E'})+'\n')
+        
+        # region agent log  
+        try:
+            with open(r'c:\PetProjects\Seeyay.ai\.cursor\debug.log', 'a', encoding='utf-8') as f:
+                callback_data = data.get('callback_query', {}).get('data') if 'callback_query' in data else None
+                f.write(json.dumps({"sessionId":"debug-session","runId":"post-fix","hypothesisId":"F","location":"main.py:webhook","message":"Webhook received","data":{"update_type":"callback_query" if 'callback_query' in data else "message","callback_data":callback_data},"timestamp":__import__('time').time()*1000})+'\n')
+        except:
+            pass
         # endregion
+        
         update = Update(**data)
         await dp.feed_update(bot=bot, update=update)
-        # region agent log
-        import json;open(r'c:\PetProjects\Seeyay.ai\.cursor\debug.log','a',encoding='utf-8').write(json.dumps({'location':'bot/main.py:40','message':'update processed successfully','data':{},'timestamp':__import__('time').time()*1000,'sessionId':'debug-session','runId':'run1','hypothesisId':'E'})+'\n')
-        # endregion
         return web.Response(text="OK", status=200)
     except Exception as e:
-        # region agent log
-        import json;open(r'c:\PetProjects\Seeyay.ai\.cursor\debug.log','a',encoding='utf-8').write(json.dumps({'location':'bot/main.py:43','message':'EXCEPTION in webhook_handler','data':{'error':str(e),'error_type':type(e).__name__},'timestamp':__import__('time').time()*1000,'sessionId':'debug-session','runId':'run1','hypothesisId':'E'})+'\n')
-        # endregion
         logger.error(f"Error processing update: {e}")
         return web.Response(text="Error", status=500)
+
 
 
 async def init_bot(app):
@@ -61,45 +57,79 @@ async def init_bot(app):
     global bot, dp, bot_initialized
     
     try:
-        logger.info("Initializing bot...")
+        logger.info("=== Initializing bot ===")
+        sys.stdout.flush()
         
+        logger.info("Importing aiogram...")
+        sys.stdout.flush()
         from aiogram import Bot, Dispatcher
         from aiogram.fsm.storage.memory import MemoryStorage
         from aiogram.client.default import DefaultBotProperties
         from aiogram.enums import ParseMode
+        
+        logger.info("Importing bot.config...")
+        sys.stdout.flush()
         from bot.config import get_settings
-        from bot.handlers import start_router, photo_router, webapp_router
+        
+        logger.info("Importing bot.handlers...")
+        sys.stdout.flush()
+        from bot.handlers import (
+            start_router,
+            template_selection_router,
+            energy_router,
+            photo_router,
+            dev_commands_router  # DEV ONLY - REMOVE BEFORE PROD
+        )
+        logger.info("All imports successful!")
+        sys.stdout.flush()
         
         settings = get_settings()
         logger.info(f"Got settings, token present: {bool(settings.bot_token)}")
+        sys.stdout.flush()
         
         # Создаём бота
+        logger.info("Creating bot instance...")
+        sys.stdout.flush()
         bot = Bot(
             token=settings.bot_token,
             default=DefaultBotProperties(parse_mode=ParseMode.HTML)
         )
         
         # Создаём диспетчер с хранилищем состояний
+        logger.info("Creating dispatcher...")
+        sys.stdout.flush()
         dp = Dispatcher(storage=MemoryStorage())
         
-        # Регистрируем роутеры
+        # Регистрируем роутеры (порядок важен!)
+        logger.info("Registering routers...")
+        sys.stdout.flush()
         dp.include_router(start_router)
-        dp.include_router(webapp_router)
+        dp.include_router(template_selection_router)
+        dp.include_router(energy_router)
         dp.include_router(photo_router)
+        dp.include_router(dev_commands_router)  # DEV ONLY - REMOVE BEFORE PROD
+        logger.info("All routers registered!")
+        sys.stdout.flush()
         
         # Устанавливаем webhook
         webhook_url = os.environ.get("WEBHOOK_URL")
         if webhook_url:
+            logger.info(f"Setting webhook to {webhook_url}/webhook...")
+            sys.stdout.flush()
             await bot.set_webhook(f"{webhook_url}/webhook")
-            logger.info(f"Webhook set to {webhook_url}/webhook")
+            logger.info(f"Webhook set successfully!")
+            sys.stdout.flush()
         else:
-            logger.warning("WEBHOOK_URL not set, webhook not configured")
+            logger.warning("WEBHOOK_URL not set!")
+            sys.stdout.flush()
         
         bot_initialized = True
-        logger.info("Bot initialized successfully!")
+        logger.info("=== Bot initialized successfully! ===")
+        sys.stdout.flush()
         
     except Exception as e:
-        logger.error(f"Failed to initialize bot: {e}", exc_info=True)
+        logger.error(f"=== FAILED to initialize bot: {e} ===", exc_info=True)
+        sys.stdout.flush()
 
 
 async def cleanup_bot(app):
@@ -114,9 +144,12 @@ async def cleanup_bot(app):
 
 def main():
     """Главная функция запуска"""
-    logger.info("Starting application...")
+    logger.info("=== Starting application ===")
+    sys.stdout.flush()
     
     # Создаём aiohttp приложение
+    logger.info("Creating aiohttp application...")
+    sys.stdout.flush()
     app = web.Application()
     
     # Health check endpoints (всегда работают)
@@ -133,7 +166,8 @@ def main():
     # Получаем порт из переменной окружения
     port = int(os.environ.get("PORT", 8080))
     
-    logger.info(f"Starting server on port {port}...")
+    logger.info(f"=== Starting server on port {port} ===")
+    sys.stdout.flush()
     
     # Запускаем веб-сервер
     web.run_app(app, host="0.0.0.0", port=port, print=logger.info)

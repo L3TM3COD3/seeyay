@@ -1,11 +1,12 @@
-# Cloud Build configuration for СИЯЙ AI
-# Builds and deploys all three services to Cloud Run
+# Cloud Build configuration for СИЯЙ AI - DEV Environment
+# Builds and deploys all three services to Cloud Run (seeyay-ai-dev project)
 
 substitutions:
   _REGION: europe-west4
-  _BOT_SERVICE: seeyay-ai-tg-bot
-  _API_SERVICE: seeyay-ai-api
-  _MINIAPP_SERVICE: seeyay-ai-miniapp
+  _BOT_SERVICE: seeyay-bot
+  _API_SERVICE: seeyay-api
+  _MINIAPP_SERVICE: seeyay-miniapp
+  _PROJECT_NUMBER: '269162169877'
 
 steps:
   # ==================== Build Bot Service ====================
@@ -13,8 +14,6 @@ steps:
     id: 'build-bot'
     args:
       - 'build'
-      - '-t'
-      - 'gcr.io/$PROJECT_ID/${_BOT_SERVICE}:$COMMIT_SHA'
       - '-t'
       - 'gcr.io/$PROJECT_ID/${_BOT_SERVICE}:latest'
       - '-f'
@@ -28,25 +27,24 @@ steps:
     args:
       - 'build'
       - '-t'
-      - 'gcr.io/$PROJECT_ID/${_API_SERVICE}:$COMMIT_SHA'
-      - '-t'
       - 'gcr.io/$PROJECT_ID/${_API_SERVICE}:latest'
       - '-f'
       - 'backend/Dockerfile'
       - '.'
     waitFor: ['-']
 
-  # ==================== Build Mini App Service ====================
+  # ==================== Build Mini App Service (DEV - with custom API URL) ====================
   - name: 'gcr.io/cloud-builders/docker'
     id: 'build-miniapp'
-    dir: 'mini-app'
     args:
       - 'build'
-      - '-t'
-      - 'gcr.io/$PROJECT_ID/${_MINIAPP_SERVICE}:$COMMIT_SHA'
+      - '--build-arg'
+      - 'VITE_API_URL=https://seeyay-api-269162169877.europe-west4.run.app'
       - '-t'
       - 'gcr.io/$PROJECT_ID/${_MINIAPP_SERVICE}:latest'
-      - '.'
+      - '-f'
+      - 'mini-app/Dockerfile'
+      - 'mini-app'
     waitFor: ['-']
 
   # ==================== Push Images ====================
@@ -54,21 +52,21 @@ steps:
     id: 'push-bot'
     args:
       - 'push'
-      - 'gcr.io/$PROJECT_ID/${_BOT_SERVICE}:$COMMIT_SHA'
+      - 'gcr.io/$PROJECT_ID/${_BOT_SERVICE}:latest'
     waitFor: ['build-bot']
 
   - name: 'gcr.io/cloud-builders/docker'
     id: 'push-api'
     args:
       - 'push'
-      - 'gcr.io/$PROJECT_ID/${_API_SERVICE}:$COMMIT_SHA'
+      - 'gcr.io/$PROJECT_ID/${_API_SERVICE}:latest'
     waitFor: ['build-api']
 
   - name: 'gcr.io/cloud-builders/docker'
     id: 'push-miniapp'
     args:
       - 'push'
-      - 'gcr.io/$PROJECT_ID/${_MINIAPP_SERVICE}:$COMMIT_SHA'
+      - 'gcr.io/$PROJECT_ID/${_MINIAPP_SERVICE}:latest'
     waitFor: ['build-miniapp']
 
   # ==================== Deploy Bot Service ====================
@@ -80,7 +78,7 @@ steps:
       - 'deploy'
       - '${_BOT_SERVICE}'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/${_BOT_SERVICE}:$COMMIT_SHA'
+      - 'gcr.io/$PROJECT_ID/${_BOT_SERVICE}:latest'
       - '--region'
       - '${_REGION}'
       - '--platform'
@@ -92,7 +90,7 @@ steps:
       - '--max-instances'
       - '3'
       - '--set-env-vars'
-      - 'GCP_PROJECT_ID=$PROJECT_ID,GCP_LOCATION=${_REGION},MINI_APP_URL=https://seeyay-ai-miniapp-445810320877.${_REGION}.run.app,WEBHOOK_URL=https://seeyay-ai-tg-bot-445810320877.${_REGION}.run.app'
+      - 'GCP_PROJECT_ID=$PROJECT_ID,GCP_LOCATION=${_REGION},MINI_APP_URL=https://${_MINIAPP_SERVICE}-${_PROJECT_NUMBER}.${_REGION}.run.app,WEBHOOK_URL=https://${_BOT_SERVICE}-${_PROJECT_NUMBER}.${_REGION}.run.app'
       - '--set-secrets'
       - 'BOT_TOKEN=telegram-bot-token:latest'
       - '--allow-unauthenticated'
@@ -107,7 +105,7 @@ steps:
       - 'deploy'
       - '${_API_SERVICE}'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/${_API_SERVICE}:$COMMIT_SHA'
+      - 'gcr.io/$PROJECT_ID/${_API_SERVICE}:latest'
       - '--region'
       - '${_REGION}'
       - '--platform'
@@ -119,9 +117,9 @@ steps:
       - '--max-instances'
       - '10'
       - '--set-env-vars'
-      - 'GCP_PROJECT_ID=$PROJECT_ID'
+      - 'GCP_PROJECT_ID=$PROJECT_ID,MINI_APP_URL=https://${_MINIAPP_SERVICE}-${_PROJECT_NUMBER}.${_REGION}.run.app'
       - '--set-secrets'
-      - 'CLOUDPAYMENTS_PUBLIC_ID=cloudpayments-public-id:latest,CLOUDPAYMENTS_API_SECRET=cloudpayments-api-secret:latest'
+      - 'BOT_TOKEN=telegram-bot-token:latest,CLOUDPAYMENTS_PUBLIC_ID=cloudpayments-public-id:latest,CLOUDPAYMENTS_API_SECRET=cloudpayments-api-secret:latest'
       - '--allow-unauthenticated'
     waitFor: ['push-api']
 
@@ -134,7 +132,7 @@ steps:
       - 'deploy'
       - '${_MINIAPP_SERVICE}'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/${_MINIAPP_SERVICE}:$COMMIT_SHA'
+      - 'gcr.io/$PROJECT_ID/${_MINIAPP_SERVICE}:latest'
       - '--region'
       - '${_REGION}'
       - '--platform'
@@ -149,11 +147,8 @@ steps:
     waitFor: ['push-miniapp']
 
 images:
-  - 'gcr.io/$PROJECT_ID/${_BOT_SERVICE}:$COMMIT_SHA'
   - 'gcr.io/$PROJECT_ID/${_BOT_SERVICE}:latest'
-  - 'gcr.io/$PROJECT_ID/${_API_SERVICE}:$COMMIT_SHA'
   - 'gcr.io/$PROJECT_ID/${_API_SERVICE}:latest'
-  - 'gcr.io/$PROJECT_ID/${_MINIAPP_SERVICE}:$COMMIT_SHA'
   - 'gcr.io/$PROJECT_ID/${_MINIAPP_SERVICE}:latest'
 
 options:
