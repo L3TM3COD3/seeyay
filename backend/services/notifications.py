@@ -4,21 +4,16 @@ Notification Service - отправка уведомлений в Telegram
 import aiohttp
 from typing import Optional
 import logging
-import sys
-import os
 
-# Add bot directory to path to import messages
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-from bot.messages import (
+from backend.secrets import get_bot_token
+from backend.keyboards_raw import kb_template_grid_raw, kb_downsell_raw
+from backend.messages import (
     m2_reminder,
     m5_photo_reminder,
     m10_1_tips_after_first,
     m10_2_pro_suggestion,
     m12_downsell
 )
-
-from backend.secrets import get_bot_token
-from backend.keyboards_raw import kb_template_grid_raw, kb_downsell_raw
 
 logger = logging.getLogger(__name__)
 
