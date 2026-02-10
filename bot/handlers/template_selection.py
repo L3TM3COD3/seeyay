@@ -18,7 +18,6 @@ from bot.messages import (
 from bot.states import UserState
 from bot.styles_data import get_style_by_id
 from bot.firestore import get_user, set_user_timestamp
-from datetime import datetime, set_user_timestamp
 from datetime import datetime
 
 router = Router()

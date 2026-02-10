@@ -9,7 +9,6 @@ from bot.messages import m1_welcome, m13_main_menu
 from bot.states import UserState
 from bot.config import get_settings
 from bot.firestore import ensure_user_exists, get_user, set_user_timestamp
-from datetime import datetime, set_user_timestamp
 from datetime import datetime
 
 router = Router()
