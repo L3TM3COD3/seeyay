@@ -16,7 +16,8 @@ todos:
     status: completed
   - id: deploy-test
     content: Deploy to dev, run reset script, test both commands in Telegram
-    status: in_progress
+    status: completed
+isProject: false
 ---
 
 # Dev Testing Commands
@@ -44,24 +45,26 @@ sequenceDiagram
     DevCommands-->>User: "Added +24 energy. New balance: X"
 ```
 
+
+
 ## Implementation Steps
 
-### 1. Create [`bot/handlers/dev_commands.py`](bot/handlers/dev_commands.py)
+### 1. Create `[bot/handlers/dev_commands.py](bot/handlers/dev_commands.py)`
 
 New file with two command handlers:
 
-**Command: `/_reset`**
+**Command: `/_reset**`
 
 - Delete user document from Firestore
 - Call `ensure_user_exists()` to recreate with fresh defaults:
-        - `balance: 3`
-        - `successful_generations: 0`
-        - `is_new_user: True`
-        - All message flags (`m7_1_sent`, `m7_2_sent`, `m7_3_sent`, `m9_shown`) reset to `False`
-        - `starter_pack_purchased: False`
+                          - `balance: 3`
+                          - `successful_generations: 0`
+                          - `is_new_user: True`
+                          - All message flags (`m7_1_sent`, `m7_2_sent`, `m7_3_sent`, `m9_shown`) reset to `False`
+                          - `starter_pack_purchased: False`
 - Reply: "✅ Твои данные сброшены! Ты снова новый пользователь с 3⚡"
 
-**Command: `/_addbalance`**
+**Command: `/_addbalance**`
 
 - Call `update_user_balance(telegram_id, +24)`
 - Get updated user to show new balance
@@ -127,7 +130,7 @@ async def cmd_add_balance(message: Message):
         await message.answer(f"❌ Ошибка добавления энергии: {e}")
 ```
 
-### 2. Register router in [`bot/handlers/__init__.py`](bot/handlers/__init__.py)
+### 2. Register router in `[bot/handlers/__init__.py](bot/handlers/__init__.py)`
 
 Add import and export:
 
@@ -147,7 +150,7 @@ __all__ = [
 ]
 ```
 
-### 3. Include router in [`bot/main.py`](bot/main.py)
+### 3. Include router in `[bot/main.py](bot/main.py)`
 
 Add to imports and router registration:
 
@@ -170,7 +173,7 @@ dp.include_router(dev_commands_router)  # DEV ONLY - REMOVE BEFORE PROD
 
 ### 4. Reset user 225190081 immediately
 
-Create one-time script [`scripts/reset_user_225190081.py`](scripts/reset_user_225190081.py):
+Create one-time script `[scripts/reset_user_225190081.py](scripts/reset_user_225190081.py)`:
 
 ```python
 """
@@ -214,9 +217,9 @@ Run once to reset your data before testing bot.
 
 ### 5. Add cleanup reminder to README
 
-Add to [`README.md`](README.md) in "Деплой на Production" section:
+Add to `[README.md](README.md)` in "Деплой на Production" section:
 
-````markdown
+```markdown
 ### ⚠️ Pre-Production Checklist
 
 Before deploying to production, remove dev-only code:
@@ -234,7 +237,8 @@ Before deploying to production, remove dev-only code:
 # Verify no dev commands remain
 grep -r "dev_commands" bot/
 grep -r "_reset\|_addbalance" bot/handlers/
-````
+```
+
 ```
 
 ## Files to Create/Modify
@@ -274,3 +278,5 @@ User mentioned "1 раз в сутки" (once per day) energy bonus - this featu
 ## Removal Before Production
 
 Simply delete 3 files and remove 4 lines of code marked with "DEV ONLY" comments. All dev functionality is isolated in one handler file.
+```
+
