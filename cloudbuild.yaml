@@ -146,11 +146,8 @@ steps:
     waitFor: ['push-miniapp']
 
 images:
-  - 'gcr.io/$PROJECT_ID/${_BOT_SERVICE}:$SHORT_SHA'
   - 'gcr.io/$PROJECT_ID/${_BOT_SERVICE}:latest'
-  - 'gcr.io/$PROJECT_ID/${_API_SERVICE}:$SHORT_SHA'
   - 'gcr.io/$PROJECT_ID/${_API_SERVICE}:latest'
-  - 'gcr.io/$PROJECT_ID/${_MINIAPP_SERVICE}:$SHORT_SHA'
   - 'gcr.io/$PROJECT_ID/${_MINIAPP_SERVICE}:latest'
 
 options:

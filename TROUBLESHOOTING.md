@@ -383,7 +383,257 @@ gcloud builds submit . --config=cloudbuild-dev.yaml --project=seeyay-ai-dev
 
 ---
 
+## ⏰ Проблемы с Delayed Messages
+
+### Delayed messages (m2, m5, m10.1 и т.д.) не приходят
+
+#### Возможные причины:
+
+1. **`started_at` не установлен** 
+   - m2 требует `started_at != None`. Проверьте, что `/start` устанавливает это поле
+   - После сброса пользователя через скрипт нужно обязательно выполнить `/start` заново
+
+2. **Условия не выполнены** 
+   - Каждое сообщение имеет свои условия по времени и состоянию пользователя
+   - Проверьте код в `backend/firestore.py` → функция `get_users_for_delayed_messages()`
+
+3. **Флаг уже установлен** 
+   - `m2_sent=True` означает, что сообщение уже было отправлено
+   - Нужно сбросить флаг через Firestore Console или скрипт
+
+#### Диагностика состояния пользователя
+
+Проверьте логи Cloud Run для конкретного пользователя:
+
+```bash
+gcloud logging read "resource.type=cloud_run_revision AND textPayload:<USER_TELEGRAM_ID>" \
+    --project=seeyay-ai-tg-bot --limit=20
+```
+
+Проверьте состояние пользователя в Firestore Console:
+```
+https://console.cloud.google.com/firestore/data/users/<USER_TELEGRAM_ID>?project=seeyay-ai-tg-bot
+```
+
+Ключевые поля для проверки:
+- `started_at` — должен быть установлен (не `None`)
+- `successful_generations` — должен быть `0` для m2
+- `m2_sent` — должен быть `False` для m2
+- `last_generation_at` — должен быть установлен для m10.1/m10.2
+- `m10_1_sent` / `m10_2_sent` — должны быть `False`
+
+#### Таймеры delayed messages (production):
+
+| Сообщение | Таймер | Условие |
+|-----------|--------|---------|
+| m2 | 1 час после `/start` | `successful_generations == 0` |
+| m5 | 7 минут после выбора шаблона | `successful_generations < 3` |
+| m10.1 | 60 минут после генерации | `successful_generations == 1` |
+| m10.2 | 60 минут после генерации | `successful_generations == 2` |
+| m12 | 24 часа после m9 | `any_pack_purchased == False` |
+
+---
+
+## 🎨 Проблемы с генерацией изображений
+
+### Генерация изображений не работает (403 Permission Denied)
+
+#### Проблема
+После отправки фото в бот генерация падает с ошибкой `403 Permission 'aiplatform.endpoints.predict' denied`.
+
+#### Причина
+Service account Cloud Run не имеет прав доступа к Vertex AI.
+
+#### Решение
+
+Выдайте роль `roles/aiplatform.user` сервисному аккаунту:
+
+```bash
+gcloud projects add-iam-policy-binding seeyay-ai-tg-bot \
+    --member="serviceAccount:445810320877-compute@developer.gserviceaccount.com" \
+    --role="roles/aiplatform.user"
+```
+
+#### Проверка
+
+После выдачи прав **обязательно** выполните редеплой бота для применения изменений:
+
+```bash
+gcloud builds submit --config=cloudbuild.yaml --project=seeyay-ai-tg-bot
+```
+
+Или принудительно обновите сервис:
+
+```bash
+gcloud run services update seeyay-ai-tg-bot \
+    --region=europe-west4 \
+    --project=seeyay-ai-tg-bot
+```
+
+---
+
+## 🗄️ Проблемы с Firestore
+
+### Локальные скрипты работают с неправильным Firestore
+
+#### Проблема
+Локальные Python скрипты (например, для сброса пользователей) выполняются успешно, но изменения не видны в production. Данные пользователей остаются прежними.
+
+#### Причина
+`firestore.AsyncClient()` без явного указания project ID использует default проект из `gcloud config`, который может отличаться от production проекта.
+
+```python
+# НЕПРАВИЛЬНО - использует default проект из gcloud config
+from google.cloud import firestore
+db = firestore.AsyncClient()
+```
+
+#### Решение
+
+**ВСЕГДА** явно указывайте project ID при создании Firestore клиента:
+
+```python
+# ПРАВИЛЬНО - явно указываем production проект
+from google.cloud import firestore
+db = firestore.AsyncClient(project="seeyay-ai-tg-bot")
+```
+
+#### Проверка текущего default проекта
+
+```bash
+gcloud config get-value project
+```
+
+Если это не `seeyay-ai-tg-bot`, то локальные скрипты без явного указания проекта будут работать с другой базой данных.
+
+#### Пример правильного скрипта сброса
+
+```python
+"""
+Reset user to initial state
+Usage: python reset_user.py <telegram_id>
+"""
+import asyncio
+import sys
+from google.cloud import firestore
+
+async def reset_user(user_id: str):
+    # ВАЖНО: Явно указываем проект
+    PROJECT_ID = "seeyay-ai-tg-bot"
+    db = firestore.AsyncClient(project=PROJECT_ID)
+    
+    doc_ref = db.collection("users").document(user_id)
+    
+    reset_data = {
+        "balance": 3,
+        "successful_generations": 0,
+        "is_new_user": True,
+        "started_at": None,
+        "m2_sent": False,
+        "m5_sent": False,
+        "m10_1_sent": False,
+        "m10_2_sent": False,
+        # ... другие поля
+    }
+    
+    await doc_ref.update(reset_data)
+    print(f"User {user_id} reset in project {PROJECT_ID}")
+
+if __name__ == "__main__":
+    asyncio.run(reset_user(sys.argv[1]))
+```
+
+---
+
 ## 🔍 Общие проблемы и решения
+
+### Webhook'и CloudPayments не приходят
+
+#### Проблема
+После оплаты CloudPayments не отправляет webhook на сервер, платежи не обрабатываются.
+
+#### Возможные причины и решения:
+
+1. **Проверьте URL в настройках CloudPayments**
+   - Зайдите в личный кабинет CloudPayments
+   - Убедитесь, что webhook URL указан правильно: `https://seeyay-ai-api-445810320877.europe-west4.run.app/api/webhooks/cloudpayments`
+   - URL должен быть доступен по HTTPS
+
+2. **Проверьте доступность домена**
+   ```bash
+   curl -X POST https://seeyay-ai-api-445810320877.europe-west4.run.app/api/webhooks/cloudpayments \
+       -H "Content-Type: application/json" \
+       -d '{}'
+   ```
+
+3. **Проверьте логи Cloud Run API**
+   ```bash
+   gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=seeyay-ai-api" \
+       --project=seeyay-ai-tg-bot --limit=50
+   ```
+
+### Ошибка проверки подписи CloudPayments
+
+#### Проблема
+Webhook от CloudPayments приходит, но сервер отклоняет его с ошибкой проверки подписи.
+
+#### Решение:
+
+1. **Убедитесь, что API Secret правильно сохранен в Secret Manager**
+   ```bash
+   gcloud secrets versions access latest --secret=cloudpayments-api-secret --project=seeyay-ai-tg-bot
+   ```
+
+2. **Проверьте кодировку (UTF-8)**
+   - API Secret должен быть сохранен в UTF-8 без BOM
+   - При создании секрета используйте `echo -n` (без переноса строки)
+
+3. **Проверьте код проверки подписи**
+   - См. `backend/services/cloudpayments.py` → метод `verify_signature()`
+
+### Cron jobs не выполняются
+
+#### Проблема
+Cloud Scheduler не вызывает cron endpoints, delayed messages не отправляются.
+
+#### Диагностика:
+
+1. **Проверьте расписание Cloud Scheduler**
+   ```bash
+   gcloud scheduler jobs list --location=europe-west1 --project=seeyay-ai-tg-bot
+   ```
+
+2. **Проверьте, что Cloud Run API доступен**
+   ```bash
+   curl https://seeyay-ai-api-445810320877.europe-west4.run.app/health
+   ```
+
+3. **Проверьте авторизацию**
+   - Убедитесь, что `cron-auth-token` существует в Secret Manager
+   - Проверьте, что Bearer token передаётся в заголовке Authorization
+   - Код проверки: `backend/routers/cron.py` → функция `verify_cron_auth()`
+
+4. **Проверьте логи Cloud Scheduler**
+   ```bash
+   gcloud logging read "resource.type=cloud_scheduler_job" \
+       --project=seeyay-ai-tg-bot --limit=20
+   ```
+
+5. **Проверьте логи cron endpoint**
+   ```bash
+   gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=seeyay-ai-api AND textPayload:delayed-messages" \
+       --project=seeyay-ai-tg-bot --limit=20
+   ```
+
+#### Если cron job возвращает 401 Unauthorized:
+
+Проверьте, что API имеет доступ к секрету `cron-auth-token`:
+
+```bash
+gcloud projects add-iam-policy-binding seeyay-ai-tg-bot \
+    --member="serviceAccount:445810320877-compute@developer.gserviceaccount.com" \
+    --role="roles/secretmanager.secretAccessor"
+```
 
 ### Ошибка: "invalid reference format" при сборке Docker образа
 

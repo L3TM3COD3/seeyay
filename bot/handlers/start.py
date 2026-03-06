@@ -28,10 +28,13 @@ async def cmd_start(message: Message, state: FSMContext):
     # Создаём пользователя если не существует
     await ensure_user_exists(telegram_id, username)
     
-    # Для новых пользователей записываем started_at (Plan 2)
-    if is_new_user:
+    # Для новых пользователей ИЛИ пользователей без started_at записываем started_at (Plan 2)
+    # FIX: Также устанавливаем started_at для пользователей у которых он None (после reset)
+    should_set_started_at = is_new_user or (user and user.get("started_at") is None)
+    
+    if should_set_started_at:
         await set_user_timestamp(telegram_id, "started_at", datetime.utcnow())
-        logger.info(f"New user {telegram_id}, set started_at timestamp")
+        logger.info(f"User {telegram_id}, set started_at timestamp (new or reset user)")
     
     # Сбрасываем состояние
     await state.clear()

@@ -571,22 +571,58 @@ h1, h2, h3 {
 .profile-packs-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  gap: 20px 16px;
+  align-items: stretch;
+  padding-top: 8px;
 }
 
 .profile-pack-card {
-  padding: 16px;
+  position: relative;
+  padding: 24px 16px 16px;
   border-radius: var(--radius-lg);
   border: 2px solid var(--color-gray-200);
-  background: var(--color-white);
+  background: var(--color-gray-100);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
   transition: all 0.2s;
+  min-height: 140px;
 }
 
 .profile-pack-card:hover {
   border-color: var(--color-black);
+}
+
+.profile-pack-card__badge {
+  position: absolute;
+  top: -10px;
+  left: 12px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: lowercase;
+  white-space: nowrap;
+}
+
+.profile-pack-card__badge--try {
+  background: var(--color-gray-500);
+  color: var(--color-white);
+}
+
+.profile-pack-card__badge--popular {
+  background: var(--color-look);
+  color: var(--color-white);
+}
+
+.profile-pack-card__badge--best {
+  background: #7C3AED;
+  color: var(--color-white);
+}
+
+.profile-pack-card__badge--super {
+  background: #00E676;
+  color: var(--color-black);
 }
 
 .profile-pack-card__header {
@@ -598,27 +634,8 @@ h1, h2, h3 {
 
 .profile-pack-card__energy {
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 800;
   color: var(--color-black);
-}
-
-.profile-pack-card__badge {
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: lowercase;
-  white-space: nowrap;
-  background: var(--color-look);
-  color: var(--color-white);
-}
-
-.profile-pack-card__badge--popular {
-  background: var(--color-look);
-}
-
-.profile-pack-card__badge--best {
-  background: #7C3AED;
 }
 
 .profile-pack-card__price {
@@ -629,19 +646,25 @@ h1, h2, h3 {
 
 .profile-pack-card__amount {
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--color-black);
 }
 
-.profile-pack-card__discount {
-  font-size: 12px;
-  font-weight: 500;
+.profile-terms {
+  margin: 20px 0 0;
+  font-size: 11px;
   color: var(--color-gray-500);
+  line-height: 1.5;
+}
+
+.profile-terms a {
+  color: var(--color-gray-500);
+  text-decoration: underline;
 }
 
 .profile-pack-card__button {
   width: 100%;
-  padding: 10px;
+  padding: 12px;
   border-radius: var(--radius-md);
   border: none;
   background: var(--color-black);
@@ -651,6 +674,7 @@ h1, h2, h3 {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  margin-top: auto;
 }
 
 .profile-pack-card__button:active {

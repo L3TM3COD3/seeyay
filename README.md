@@ -121,7 +121,6 @@ Seeyay.ai/
 │   └── PLAN2_DEPLOY.md        # Руководство по деплою Plan 2
 │
 ├── cloudbuild.yaml            # CI/CD production
-├── cloudbuild-dev.yaml        # CI/CD development
 └── TROUBLESHOOTING.md         # Решение проблем
 ```
 
@@ -324,108 +323,31 @@ echo "❌ НАЙДЕНЫ ОСТАТКИ DEV-КОДА! Проверьте выв�
 - ❌ Файла `bot/handlers/dev_commands.py`
 - ❌ Папки `scripts/`
 
-### Development деплой
-
-Для разработки используется отдельный GCP проект `seeyay-ai-dev` с полной изоляцией:
-- Отдельная Firestore база данных
-- Отдельный Telegram бот (@siay_ai_bot)
-- Отдельные Cloud Run сервисы
-- Отдельные секреты в Secret Manager
+### Production деплой
 
 ```bash
-# Деплой на dev (seeyay-ai-dev)
-gcloud builds submit . --config=cloudbuild-dev.yaml --project=seeyay-ai-dev
-```
-
-**Важно:** `cloudbuild-dev.yaml` автоматически передаёт `--build-arg VITE_API_URL` 
-для Mini App, чтобы она обращалась к dev API, а не к production.
-
-### Альтернатива: ручной деплой
-
-```bash
-# Production
-gcloud builds submit . --config=cloudbuild.yaml --project=seeyay-ai-tg-bot
-
-# Development  
-gcloud builds submit . --config=cloudbuild-dev.yaml --project=seeyay-ai-dev
-```
-
-## 🧪 Development Environment (Dev)
-
-Проект поддерживает **полную изоляцию** между production и development окружениями.
-
-### Два GCP проекта
-
-| Параметр | Production | Development |
-|----------|-----------|-------------|
-| **GCP Project** | `seeyay-ai-tg-bot` | `seeyay-ai-dev` |
-| **Project Number** | `445810320877` | `269162169877` |
-| **Telegram Bot** | @seeyay_ai_bot | @siay_ai_bot |
-| **Firestore** | Отдельная БД | Отдельная БД |
-| **Cloud Build** | `cloudbuild.yaml` | `cloudbuild-dev.yaml` |
-
-### Настройка dev окружения
-
-1. **Создайте dev проект** (если ещё не создан):
-```bash
-gcloud projects create seeyay-ai-dev --name="СИЯЙ AI Dev"
-```
-
-2. **Включите API**:
-```bash
-gcloud services enable \
-    cloudbuild.googleapis.com \
-    run.googleapis.com \
-    secretmanager.googleapis.com \
-    firestore.googleapis.com \
-    aiplatform.googleapis.com \
-    --project=seeyay-ai-dev
-```
-
-3. **Создайте dev бота** у @BotFather и сохраните токен
-
-4. **Создайте секреты**:
-```bash
-echo -n "DEV_BOT_TOKEN" | gcloud secrets create telegram-bot-token \
-    --data-file=- --replication-policy="automatic" --project=seeyay-ai-dev
-```
-
-5. **Выдайте права Cloud Run**:
-```bash
-PROJECT_NUMBER=269162169877
-
-# Firestore
-gcloud projects add-iam-policy-binding seeyay-ai-dev \
-    --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
-    --role="roles/datastore.user"
-
-# Secret Manager  
-gcloud projects add-iam-policy-binding seeyay-ai-dev \
-    --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
-    --role="roles/secretmanager.secretAccessor"
-
-# Vertex AI
-gcloud projects add-iam-policy-binding seeyay-ai-dev \
-    --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
-    --role="roles/aiplatform.user"
-```
-
-### Workflow разработки
-
-```bash
-# 1. Работаем в dev ветке
-git checkout dev
-
-# 2. Деплоим на dev окружение
-gcloud builds submit . --config=cloudbuild-dev.yaml --project=seeyay-ai-dev
-
-# 3. Тестируем в dev боте (@siay_ai_bot)
-
-# 4. Когда всё ОК — мержим в main и деплоим на prod
-git checkout main
-git merge dev
 gcloud builds submit . --config=cloudbuild.yaml --project=seeyay-ai-tg-bot
 ```
+
+## 🚀 Production Environment
+
+Проект развёрнут в GCP проекте `seeyay-ai-tg-bot`.
+
+### Production конфигурация
+
+| Параметр | Значение |
+|----------|----------|
+| **GCP Project** | `seeyay-ai-tg-bot` |
+| **Project Number** | `445810320877` |
+| **Telegram Bot** | @seeyay_ai_bot |
+| **Cloud Build** | `cloudbuild.yaml` |
+| **Region** | `europe-west4` |
+
+### Сервисы
+
+- **seeyay-ai-tg-bot** - Telegram бот
+- **seeyay-ai-api** - Backend API
+- **seeyay-ai-miniapp** - Mini App (React)
 
 ### Безопасность кода
 
@@ -700,38 +622,29 @@ CVV: любой (123), Срок: любая будущая дата
 
 ```bash
 # Логи Cloud Run API
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=seeyay-api" \
-    --limit=50
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=seeyay-ai-api" \
+    --project=seeyay-ai-tg-bot --limit=50
 
 # Логи Bot
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=seeyay-bot" \
-    --limit=50
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=seeyay-ai-tg-bot" \
+    --project=seeyay-ai-tg-bot --limit=50
 
 # Логи Cloud Scheduler
 gcloud logging read "resource.type=cloud_scheduler_job" \
-    --limit=50
+    --project=seeyay-ai-tg-bot --limit=50
 ```
 
 ## 🐛 Troubleshooting
 
-Для подробного руководства по решению проблем см. **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)**
+Для решения проблем см. подробное руководство **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)**, которое включает:
 
-### Webhook'и не приходят
-- Проверьте URL в настройках CloudPayments
-- Убедитесь, что домен доступен по HTTPS
-- Проверьте логи Cloud Run API
-
-### Ошибка проверки подписи
-- Убедитесь, что API Secret правильно сохранен в Secret Manager
-- Проверьте кодировку (UTF-8)
-
-### Cron jobs не выполняются
-- Проверьте расписание: `gcloud scheduler jobs list --location=europe-west4`
-- Убедитесь, что Cloud Run API доступен
-- Проверьте авторизацию
-
-### Проблемы при деплое dev окружения
-- См. детальный checklist в [TROUBLESHOOTING.md](TROUBLESHOOTING.md#-checklist-для-настройки-нового-dev-окружения)
+- ⏰ Проблемы с Delayed Messages (m2, m5, m10.1)
+- 🎨 Проблемы с генерацией изображений
+- 🗄️ Проблемы с Firestore и локальными скриптами
+- 🖥️ Проблемы Mini App
+- 🚀 Проблемы при деплое
+- 📋 Checklist для настройки dev окружения
+- 🔍 Общие проблемы (webhook'и, cron jobs, Docker)
 
 ## 📚 Полезные ссылки
 

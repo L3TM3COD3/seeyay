@@ -99,20 +99,29 @@ export function Profile({ user, onEnergyClick }: ProfileProps) {
       <div className="profile-packs">
         <h3 className="profile-packs__title">Купить энергию</h3>
         <div className="profile-packs-grid">
-          {packs.map((pack) => {
-            const badge = pack.id === 'pack_50' ? 'популярно' : pack.id === 'pack_120' ? 'выгодно' : null;
-            const badgeType = pack.id === 'pack_50' ? 'popular' : pack.id === 'pack_120' ? 'best' : null;
-            const discount = pack.id === 'pack_50' ? '−37%' : pack.id === 'pack_120' ? '−57%' : pack.id === 'pack_300' ? '−67%' : null;
+          {packs
+            .filter((pack) => !['pack_starter', 'pack_downsell'].includes(pack.id))
+            .map((pack) => {
+            const badgeMap: Record<string, { text: string; type: string }> = {
+              pack_10: { text: 'попробовать', type: 'try' },
+              pack_50: { text: 'популярно', type: 'popular' },
+              pack_120: { text: 'выгодно', type: 'best' },
+              pack_300: { text: 'самый выгодный', type: 'super' },
+            };
+            const badge = badgeMap[pack.id];
             
             return (
               <div key={pack.id} className="profile-pack-card">
+                {badge && (
+                  <span className={`profile-pack-card__badge profile-pack-card__badge--${badge.type}`}>
+                    {badge.text}
+                  </span>
+                )}
                 <div className="profile-pack-card__header">
                   <span className="profile-pack-card__energy">{pack.energy} ⚡</span>
-                  {badge && <span className={`profile-pack-card__badge profile-pack-card__badge--${badgeType}`}>{badge}</span>}
                 </div>
                 <div className="profile-pack-card__price">
                   <span className="profile-pack-card__amount">{pack.price} ₽</span>
-                  {discount && <span className="profile-pack-card__discount">{discount}</span>}
                 </div>
                 <button 
                   className="profile-pack-card__button"
@@ -124,6 +133,12 @@ export function Profile({ user, onEnergyClick }: ProfileProps) {
             );
           })}
         </div>
+        <p className="profile-terms">
+          Используя бот, вы соглашаетесь с{' '}
+          <a href="https://clck.ru/3SPCpi" target="_blank" rel="noopener noreferrer">
+            условиями
+          </a>
+        </p>
       </div>
 
       {/* Payment Modal */}

@@ -580,7 +580,7 @@ async def get_users_for_delayed_messages() -> Dict[str, List[Dict[str, Any]]]:
                 if time_since_start >= 3600:  # 1 час
                     results["m2"].append(data)
         
-        # m5: через 7 мин после template_selected_at, если < 3 генераций и не было новых генераций
+        # m5: через 7 минут после template_selected_at, если < 3 генераций
         if not data.get("m5_sent", False):
             template_selected_at = _to_naive_utc(data.get("template_selected_at"))
             last_generation_at = _to_naive_utc(data.get("last_generation_at"))
@@ -593,7 +593,7 @@ async def get_users_for_delayed_messages() -> Dict[str, List[Dict[str, Any]]]:
                     if not last_generation_at or template_selected_at > last_generation_at:
                         results["m5"].append(data)
         
-        # m10.1: через 60 мин после last_generation_at, если ровно 1 генерация
+        # m10.1: через 60 минут после last_generation_at, если ровно 1 генерация
         if not data.get("m10_1_sent", False):
             last_generation_at = _to_naive_utc(data.get("last_generation_at"))
             successful_generations = data.get("successful_generations", 0)
@@ -603,7 +603,7 @@ async def get_users_for_delayed_messages() -> Dict[str, List[Dict[str, Any]]]:
                 if time_since_gen >= 3600:  # 60 минут
                     results["m10_1"].append(data)
         
-        # m10.2: через 60 мин после last_generation_at, если ровно 2 генерации
+        # m10.2: через 60 минут после last_generation_at, если ровно 2 генерации
         if not data.get("m10_2_sent", False):
             last_generation_at = _to_naive_utc(data.get("last_generation_at"))
             successful_generations = data.get("successful_generations", 0)
