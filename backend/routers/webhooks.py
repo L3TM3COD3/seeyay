@@ -15,6 +15,7 @@ from backend.firestore import (
 )
 from backend.services.cloudpayments import get_cloudpayments_client
 from backend.services.subscription import get_subscription_service
+from backend.services.notifications import get_notification_service
 
 router = APIRouter(prefix="/api/webhooks/cloudpayments", tags=["webhooks"])
 logger = logging.getLogger(__name__)
@@ -146,11 +147,16 @@ async def webhook_pay(
             
             if pack:
                 # Начисляем энергию
-                await update_user_balance(telegram_id, pack["energy"])
+                updated = await update_user_balance(telegram_id, pack["energy"])
                 logger.info(f"Energy added: {pack['energy']} for user {telegram_id}")
-                
-                # TODO: Отправить уведомление в Telegram
-        
+                new_balance = updated.get("balance", 0) if updated else pack["energy"]
+                notifications = get_notification_service()
+                await notifications.notify_pack_purchase_success(
+                    telegram_id=telegram_id,
+                    energy_amount=pack["energy"],
+                    new_balance=new_balance
+                )
+
         elif payment_type == "subscription":
             # Первый платеж по подписке
             subscription_service = get_subscription_service()
@@ -208,9 +214,9 @@ async def webhook_fail(
             status="failed",
             error_message=reason
         )
-        
-        # TODO: Отправить уведомление в Telegram
-        
+        notifications = get_notification_service()
+        await notifications.notify_payment_failed(telegram_id=int(account_id), reason=reason)
+
         return {"code": 0}
         
     except Exception as e:
@@ -324,11 +330,11 @@ async def webhook_refund(
                     # Списываем энергию (отрицательное значение)
                     await update_user_balance(telegram_id, -pack["energy"])
                     logger.info(f"Energy deducted after refund: {pack['energy']} for user {telegram_id}")
-            
-            # TODO: Отправить уведомление в Telegram
-        
+            notifications = get_notification_service()
+            await notifications.notify_refund(telegram_id=telegram_id, amount=amount)
+
         return {"code": 0}
-        
+
     except Exception as e:
         logger.error(f"Error in refund webhook: {e}", exc_info=True)
         return {"code": 0}

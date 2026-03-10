@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { User, GenerationPack, fetchPacks } from '../api/client';
 import { useTelegram } from '../hooks/useTelegram';
-import { PaymentModal } from './PaymentModal';
 
 interface ProfileProps {
   user: User;
   onEnergyClick: () => void;
+  onPaymentSuccess?: () => void;
 }
 
 // Данные пакетов по умолчанию
@@ -16,10 +16,8 @@ const defaultPacks: GenerationPack[] = [
   { id: 'pack_300', energy: 300, price: 2490, currency: 'RUB' },
 ];
 
-export function Profile({ user, onEnergyClick }: ProfileProps) {
+export function Profile({ user, onEnergyClick, onPaymentSuccess }: ProfileProps) {
   const [packs, setPacks] = useState<GenerationPack[]>(defaultPacks);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentWidgetParams, setPaymentWidgetParams] = useState<any>(null);
   const { hapticFeedback, user: tgUser } = useTelegram();
 
   useEffect(() => {
@@ -39,22 +37,27 @@ export function Profile({ user, onEnergyClick }: ProfileProps) {
     }
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/payments/create-pack-payment`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          telegram_id: tgUser.id,
-          pack_id: pack.id
-        })
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/payments/create-payment-url`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            telegram_id: tgUser.id,
+            pack_id: pack.id,
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error('Failed to create payment');
       }
 
-      const data = await response.json();
-      setPaymentWidgetParams(data.widget_params);
-      setShowPaymentModal(true);
+      // Бэкенд создаёт платёж, а сообщение с кнопкой оплаты придёт в чат бота.
+      // Здесь просто закрываем мини-апп.
+      if (window.Telegram?.WebApp) {
+        window.Telegram.WebApp.close();
+      }
     } catch (error) {
       console.error('Error creating payment:', error);
       alert('Не удалось создать платеж. Попробуйте позже.');
@@ -141,21 +144,6 @@ export function Profile({ user, onEnergyClick }: ProfileProps) {
         </p>
       </div>
 
-      {/* Payment Modal */}
-      <PaymentModal
-        isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        widgetParams={paymentWidgetParams}
-        onSuccess={() => {
-          alert('Оплата прошла успешно!');
-          setShowPaymentModal(false);
-          // TODO: Обновить баланс пользователя
-        }}
-        onFail={(reason) => {
-          alert(`Ошибка оплаты: ${reason}`);
-          setShowPaymentModal(false);
-        }}
-      />
     </div>
   );
 }

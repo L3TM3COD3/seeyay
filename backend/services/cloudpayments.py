@@ -164,6 +164,39 @@ class CloudPaymentsClient:
         
         return await self._make_request("/payments/get", data)
     
+    async def create_order(
+        self,
+        amount: float,
+        currency: str,
+        description: str,
+        invoice_id: str,
+        account_id: str,
+        email: Optional[str] = None,
+        receipt: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Создание счёта и получение платёжной ссылки
+        https://developers.cloudpayments.ru/#sozdanie-scheta
+        Возвращает Model с полем Url для перенаправления пользователя на страницу оплаты.
+        """
+        data: Dict[str, Any] = {
+            "Amount": amount,
+            "Currency": currency,
+            "Description": description,
+            "InvoiceId": invoice_id,
+            "AccountId": account_id,
+            "SendEmail": False,
+        }
+
+        if email:
+            data["Email"] = email
+
+        if receipt:
+            data["JsonData"] = {"cloudPayments": {"customerReceipt": receipt}}
+
+        result = await self._make_request("/orders/create", data)
+        return result.get("Model", {})
+    
     def verify_notification(
         self,
         data: str,
@@ -172,17 +205,18 @@ class CloudPaymentsClient:
         """
         Проверка подлинности уведомления
         https://developers.cloudpayments.ru/#proverka-uvedomleniy
+        Использует sync get_secret т.к. вызывается из sync verify_signature.
         """
         try:
-            _, api_secret = self._get_credentials()
-            
+            api_secret = get_secret("cloudpayments-api-secret")
+
             # Вычисляем HMAC-SHA256
             message = data.encode('utf-8')
             secret = api_secret.encode('utf-8')
             computed_signature = base64.b64encode(
                 hmac.new(secret, message, hashlib.sha256).digest()
             ).decode('utf-8')
-            
+
             return hmac.compare_digest(computed_signature, signature)
         except Exception as e:
             logger.error(f"Error verifying notification: {e}")

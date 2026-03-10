@@ -63,7 +63,12 @@ class SBPPaymentRequest(BaseModel):
 @router.get("/packs")
 async def get_packs():
     """Получить список пакетов энергии"""
-    return {"packs": GENERATION_PACKS}
+    return {
+        "packs": [
+            p for p in GENERATION_PACKS
+            if p["id"] not in {"pack_starter", "pack_downsell"}
+        ]
+    }
 
 
 @router.get("/plans")
@@ -75,63 +80,78 @@ async def get_plans():
 @router.post("/create-pack-payment")
 async def create_pack_payment(request: PackPurchaseRequest):
     """
-    Инициация оплаты пакета энергии
-    Возвращает параметры для CloudPayments виджета
+    Инициация оплаты пакета энергии (исторический endpoint для виджета).
+    Сейчас основной флоу использует create-payment-url и оплату через страницу CloudPayments.
+    Endpoint сохранён для обратной совместимости, но mini-app его больше не использует.
     """
-    # Находим пакет
+    raise HTTPException(status_code=410, detail="This endpoint is deprecated. Use create-payment-url instead.")
+
+
+@router.post("/create-payment-url")
+async def create_payment_url(request: PackPurchaseRequest):
+    """
+    Создание платёжной ссылки для бота (inline-кнопки).
+    Возвращает URL страницы CloudPayments с выбором способа оплаты (карта, СБП, Mir Pay).
+    """
     pack = next((p for p in GENERATION_PACKS if p["id"] == request.pack_id), None)
     if not pack:
         raise HTTPException(status_code=404, detail="Pack not found")
-    
-    # Проверяем пользователя
+
     user = await get_user(request.telegram_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
-    # Создаем запись платежа
+
     payment = await create_payment(
         user_id=str(request.telegram_id),
         payment_type="one_time",
         product=request.pack_id,
         amount=pack["price"],
         currency=pack["currency"],
-        payment_method="card"
+        payment_method="card",
     )
-    
-    # Создаем чек для онлайн-кассы
+
     receipt_items = [
         create_receipt_item(
             label=f"Энергия {pack['energy']}⚡",
             price=pack["price"],
             quantity=1.0,
             vat=0,
-            object_type=4  # услуга
+            object_type=4
         )
     ]
     receipt = create_receipt(
         items=receipt_items,
         email=user.get("username", f"{request.telegram_id}@telegram.user"),
-        taxation_system=1
+        taxation_system=1,
     )
-    
-    # Генерируем параметры для виджета
+
     cp_client = get_cloudpayments_client()
-    widget_params = cp_client.generate_widget_params(
-        amount=pack["price"],
-        currency=pack["currency"],
-        description=f"Покупка энергии {pack['energy']}⚡",
-        invoice_id=payment["id"],
-        account_id=str(request.telegram_id),
-        email=user.get("username", f"{request.telegram_id}@telegram.user"),
-        require_confirmation=False,
-        receipt=receipt
-    )
-    
-    logger.info(f"Pack payment created: {payment['id']}, user: {request.telegram_id}, pack: {request.pack_id}")
-    
+    try:
+        order = await cp_client.create_order(
+            amount=pack["price"],
+            currency=pack["currency"],
+            description=f"Покупка энергии {pack['energy']}⚡",
+            invoice_id=payment["id"],
+            account_id=str(request.telegram_id),
+            email=user.get("username", f"{request.telegram_id}@telegram.user"),
+            receipt=receipt,
+        )
+    except Exception as e:
+        logger.error(f"Failed to create CloudPayments order: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create payment: {str(e)}")
+
+    payment_url = order.get("Url")
+    if not payment_url:
+        logger.error("CloudPayments order created but no Url in response")
+        raise HTTPException(status_code=500, detail="Failed to get payment URL")
+
+    logger.info(f"Payment URL created: {payment['id']}, user: {request.telegram_id}, pack: {request.pack_id}")
+
     return {
         "payment_id": payment["id"],
-        "widget_params": widget_params
+        "payment_url": payment_url,
+        "energy": pack["energy"],
+        "price": pack["price"],
     }
 
 
@@ -188,6 +208,7 @@ async def create_subscription(request: SubscriptionRequest):
     
     # Генерируем параметры для виджета с рекуррентным платежом
     cp_client = get_cloudpayments_client()
+    await cp_client._get_credentials()
     widget_params = cp_client.generate_widget_params(
         amount=amount,
         currency="RUB",

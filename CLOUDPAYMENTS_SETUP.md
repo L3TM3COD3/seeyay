@@ -52,8 +52,12 @@ CloudPayments требует HTTPS для webhook'ов. Настройте до�
 - **Check**: `https://seeyay.app/api/webhooks/cloudpayments/check`
 - **Pay**: `https://seeyay.app/api/webhooks/cloudpayments/pay`
 - **Fail**: `https://seeyay.app/api/webhooks/cloudpayments/fail`
-- **Recurrent**: `https://seeyay.app/api/webhooks/cloudpayments/recurrent`
 - **Refund**: `https://seeyay.app/api/webhooks/cloudpayments/refund`
+
+Если домен seeyay.app не настроен, используйте URL Cloud Run API:
+`https://seeyay-ai-api-445810320877.europe-west4.run.app/api/webhooks/cloudpayments/{check|pay|fail|refund}`
+
+Примечание: Recurrent webhook нужен только для подписок (пока не используется).
 
 Метод: **POST**  
 Кодировка: **UTF-8**  
@@ -119,9 +123,26 @@ echo -n "your_generated_token" | gcloud secrets create cron-auth-token \
 # Обновите backend/routers/cron.py чтобы проверять этот токен
 ```
 
-## 6. Тестирование интеграции
+## 6. Точки входа для оплаты
 
-### 6.1 Тестовая среда CloudPayments
+### 6.1 Бот (inline-кнопки)
+
+При нажатии «Купить» в сообщениях m9, m11, m12, m14 бот вызывает:
+`POST /api/payments/create-payment-url` и отправляет кнопку с URL CloudPayments.
+Пользователь открывает страницу оплаты (карта, СБП, Mir Pay).
+
+Бот получает `BACKEND_URL` из переменных окружения (см. cloudbuild.yaml).
+
+### 6.2 Mini-app (Profile)
+
+Кнопки покупки в профиле открывают виджет CloudPayments через:
+`POST /api/payments/create-pack-payment` → `widget_params` → PaymentModal.
+
+После успешной оплаты баланс автоматически обновляется.
+
+## 7. Тестирование интеграции
+
+### 7.1 Тестовая среда CloudPayments
 
 CloudPayments предоставляет тестовый режим. Используйте тестовые карты:
 
@@ -132,18 +153,17 @@ CloudPayments предоставляет тестовый режим. Испол
 CVV: любой (например, 123)  
 Срок действия: любая будущая дата
 
-### 6.2 Проверка webhook'ов
+### 7.2 Проверка webhook'ов
 
 После настройки webhook'ов сделайте тестовый платеж и проверьте логи:
 
 ```bash
 # Логи Cloud Run API
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=seeyay-api" \
-    --limit=50 \
-    --format=json
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=seeyay-ai-api" \
+    --project=seeyay-ai-tg-bot --limit=50
 ```
 
-### 6.3 Проверка cron jobs
+### 7.3 Проверка cron jobs
 
 ```bash
 # Проверить статус jobs

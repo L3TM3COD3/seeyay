@@ -177,3 +177,30 @@ def kb_downsell() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="Другие пакеты", callback_data="show_balance:downsell")]
     ])
     return keyboard
+
+
+def kb_payment_confirm(payment_url: str, payment_id: str) -> InlineKeyboardMarkup:
+    """
+    Клавиатура подтверждения оплаты (m15):
+    - Перейти к оплате (URL на CloudPayments)
+    - Отмена (callback cancel_payment:{payment_id})
+    """
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💳 Перейти к оплате", url=payment_url)],
+        [InlineKeyboardButton(text="Отмена", callback_data=f"cancel_payment:{payment_id}")]
+    ])
+    return keyboard
+
+
+def kb_payment_success() -> InlineKeyboardMarkup:
+    """
+    Клавиатура после успешной оплаты (m17):
+    - Открыть мини-приложение
+    """
+    settings = get_settings()
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            _create_webapp_button("🚀 Открыть Сияй AI", settings.mini_app_url)
+        ]
+    ])
+    return keyboard

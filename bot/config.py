@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     gcp_project_id: str = Field(default="")
     gcp_location: str = Field(default="europe-west4")
     
-    # Backend
-    backend_url: str = Field(default="")
+    # Backend (API для платежей и др.)
+    backend_url: str = Field(default="http://localhost:8000")
     mini_app_url: str = Field(default="")
 
 

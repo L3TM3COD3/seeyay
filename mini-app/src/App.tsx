@@ -129,6 +129,14 @@ function App() {
     setActiveTab('profile');
   }, [hapticFeedback]);
 
+  const handlePaymentSuccess = useCallback(() => {
+    if (tgUser?.id) {
+      fetchUser(tgUser.id).then((userData) => {
+        if (userData) setUser(userData);
+      });
+    }
+  }, [tgUser]);
+
   const handleLogoClick = useCallback(() => {
     hapticFeedback('light');
     setActiveTab('photo-ideas');
@@ -155,6 +163,7 @@ function App() {
           <Profile 
             user={user}
             onEnergyClick={handleEnergyClick}
+            onPaymentSuccess={handlePaymentSuccess}
           />
         );
 

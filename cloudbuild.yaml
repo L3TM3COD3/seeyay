@@ -89,7 +89,7 @@ steps:
       - '--max-instances'
       - '3'
       - '--set-env-vars'
-      - 'GCP_PROJECT_ID=$PROJECT_ID,GCP_LOCATION=${_REGION},MINI_APP_URL=https://seeyay-ai-miniapp-445810320877.${_REGION}.run.app,WEBHOOK_URL=https://seeyay-ai-tg-bot-445810320877.${_REGION}.run.app'
+      - 'GCP_PROJECT_ID=$PROJECT_ID,GCP_LOCATION=${_REGION},MINI_APP_URL=https://seeyay-ai-miniapp-445810320877.${_REGION}.run.app,WEBHOOK_URL=https://seeyay-ai-tg-bot-445810320877.${_REGION}.run.app,BACKEND_URL=https://seeyay-ai-api-445810320877.${_REGION}.run.app'
       - '--set-secrets'
       - 'BOT_TOKEN=telegram-bot-token:latest'
       - '--allow-unauthenticated'
@@ -118,7 +118,7 @@ steps:
       - '--set-env-vars'
       - 'GCP_PROJECT_ID=$PROJECT_ID'
       - '--set-secrets'
-      - 'CLOUDPAYMENTS_PUBLIC_ID=cloudpayments-public-id:latest,CLOUDPAYMENTS_API_SECRET=cloudpayments-api-secret:latest'
+      - 'CLOUDPAYMENTS_PUBLIC_ID=cloudpayments-public-id:latest,CLOUDPAYMENTS_API_SECRET=cloudpayments-api-secret:latest,BOT_TOKEN=telegram-bot-token:latest'
       - '--allow-unauthenticated'
     waitFor: ['push-api']
 

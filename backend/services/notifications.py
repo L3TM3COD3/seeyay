@@ -6,13 +6,20 @@ from typing import Optional
 import logging
 
 from backend.secrets import get_bot_token
-from backend.keyboards_raw import kb_template_grid_raw, kb_downsell_raw
+from backend.keyboards_raw import (
+    kb_template_grid_raw,
+    kb_downsell_raw,
+    kb_payment_retry_raw,
+    kb_payment_success_raw,
+)
 from backend.messages import (
     m2_reminder,
     m5_photo_reminder,
     m10_1_tips_after_first,
     m10_2_pro_suggestion,
-    m12_downsell
+    m12_downsell,
+    m16_payment_cancelled,
+    m17_payment_success,
 )
 
 logger = logging.getLogger(__name__)
@@ -72,12 +79,11 @@ class TelegramNotificationService:
         new_balance: int
     ):
         """Уведомление об успешной покупке пакета энергии"""
-        text = (
-            f"✅ <b>Оплата прошла успешно!</b>\n\n"
-            f"Добавлено: {energy_amount} ⚡\n"
-            f"Баланс: {new_balance} ⚡"
-        )
-        await self.send_message(telegram_id, text)
+        text = m17_payment_success(energy_amount=energy_amount, new_balance=new_balance)
+        # URL мини-аппа — тот же, что используется в других уведомлениях
+        mini_app_url = "https://seeyay-ai-miniapp-445810320877.europe-west4.run.app"
+        keyboard = kb_payment_success_raw(mini_app_url)
+        await self.send_message(telegram_id, text, reply_markup=keyboard)
     
     async def notify_subscription_created(
         self,
@@ -116,12 +122,10 @@ class TelegramNotificationService:
         reason: str
     ):
         """Уведомление о неудачном платеже"""
-        text = (
-            f"❌ <b>Оплата не прошла</b>\n\n"
-            f"Причина: {reason}\n\n"
-            f"Попробуйте еще раз или свяжитесь с поддержкой."
-        )
-        await self.send_message(telegram_id, text)
+        # Текст унифицируем под m16 (платёж отменён / не удался)
+        text = m16_payment_cancelled()
+        keyboard = kb_payment_retry_raw()
+        await self.send_message(telegram_id, text, reply_markup=keyboard)
     
     async def notify_subscription_grace(
         self,
