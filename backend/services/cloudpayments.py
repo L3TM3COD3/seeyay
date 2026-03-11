@@ -9,6 +9,7 @@ import base64
 from typing import Optional, Dict, Any
 import logging
 from datetime import datetime, timedelta
+import json
 
 from backend.secrets import get_secret
 
@@ -47,15 +48,50 @@ class CloudPaymentsClient:
         
         url = f"{self.api_url}{endpoint}"
         
+        # CloudPayments API стабильно работает с form-urlencoded.
+        # Сложные поля (dict/list) сериализуем в JSON-строку.
+        payload: Dict[str, str] = {}
+        for k, v in data.items():
+            if v is None:
+                continue
+            if isinstance(v, (dict, list)):
+                payload[k] = json.dumps(v, ensure_ascii=False)
+            elif isinstance(v, bool):
+                payload[k] = "true" if v else "false"
+            else:
+                payload[k] = str(v)
+
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "seeyay-ai-api/1.0",
+        }
+
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=data, auth=auth) as response:
-                result = await response.json()
-                
+            async with session.post(url, data=payload, auth=auth, headers=headers) as response:
+                content_type = response.headers.get("Content-Type", "")
+                raw_text = await response.text()
+
+                # Попытка разобрать JSON даже если Content-Type не идеален
+                result: Dict[str, Any] | None = None
+                try:
+                    result = json.loads(raw_text)
+                except Exception:
+                    result = None
+
+                if result is None:
+                    snippet = raw_text[:4000]
+                    logger.error(
+                        "CloudPayments non-JSON response. "
+                        f"status={response.status} content_type={content_type} body_snippet={snippet!r}"
+                    )
+                    raise Exception(f"CloudPayments returned non-JSON response (status {response.status})")
+
                 if not result.get("Success"):
                     error_message = result.get("Message", "Unknown error")
                     logger.error(f"CloudPayments API error: {error_message}")
                     raise Exception(f"CloudPayments API error: {error_message}")
-                
+
                 return result
     
     async def charge_token(
