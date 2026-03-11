@@ -4,6 +4,7 @@ https://developers.cloudpayments.ru/#uvedomleniya
 """
 from fastapi import APIRouter, HTTPException, Request, Header
 from typing import Optional
+from urllib.parse import parse_qs
 import logging
 import json
 
@@ -30,6 +31,40 @@ def verify_signature(data: str, signature: Optional[str]) -> bool:
     return cp_client.verify_notification(data, signature)
 
 
+async def _parse_webhook_data(request: Request):
+    """
+    Парсит данные webhook от CloudPayments.
+    Поддерживает JSON и application/x-www-form-urlencoded.
+    Возвращает (raw_body_str, parsed_dict).
+    """
+    body = await request.body()
+    data_str = body.decode("utf-8")
+
+    content_type = request.headers.get("content-type", "")
+
+    # Явный JSON
+    if "application/json" in content_type:
+        try:
+            return data_str, json.loads(data_str)
+        except json.JSONDecodeError:
+            logger.error("Failed to parse webhook body as JSON", exc_info=True)
+            return data_str, {}
+
+    # form-urlencoded
+    if "application/x-www-form-urlencoded" in content_type:
+        parsed = parse_qs(data_str, keep_blank_values=True)
+        parsed_simple = {k: v[0] if len(v) == 1 else v for k, v in parsed.items()}
+        return data_str, parsed_simple
+
+    # Fallback: пробуем JSON, затем form-urlencoded
+    try:
+        return data_str, json.loads(data_str)
+    except json.JSONDecodeError:
+        parsed = parse_qs(data_str, keep_blank_values=True)
+        parsed_simple = {k: v[0] if len(v) == 1 else v for k, v in parsed.items()}
+        return data_str, parsed_simple
+
+
 @router.post("/check")
 async def webhook_check(
     request: Request,
@@ -40,8 +75,7 @@ async def webhook_check(
     Вызывается перед списанием средств
     https://developers.cloudpayments.ru/#check
     """
-    body = await request.body()
-    data_str = body.decode('utf-8')
+    data_str, data = await _parse_webhook_data(request)
     
     # Проверяем подпись
     if not verify_signature(data_str, content_hmac):
@@ -49,13 +83,11 @@ async def webhook_check(
         return {"code": 13}  # Ошибка проверки подписи
     
     try:
-        data = json.loads(data_str)
-        
         account_id = data.get("AccountId")
         invoice_id = data.get("InvoiceId")
-        amount = data.get("Amount")
+        amount_raw = data.get("Amount")
         
-        logger.info(f"Check webhook: account={account_id}, invoice={invoice_id}, amount={amount}")
+        logger.info(f"Check webhook: account={account_id}, invoice={invoice_id}, amount={amount_raw}")
         
         # Проверяем пользователя
         try:
@@ -80,8 +112,15 @@ async def webhook_check(
             return {"code": 12}  # Платеж уже проведен
         
         # Проверяем сумму
-        if abs(payment.get("amount", 0) - amount) > 0.01:
-            logger.warning(f"Amount mismatch: expected {payment.get('amount')}, got {amount}")
+        try:
+            amount = float(amount_raw)
+            expected_amount = float(payment.get("amount", 0))
+        except (TypeError, ValueError):
+            logger.warning(f"Invalid amount format in check webhook: expected={payment.get('amount')}, got={amount_raw}")
+            return {"code": 11}
+
+        if abs(expected_amount - amount) > 0.01:
+            logger.warning(f"Amount mismatch: expected {expected_amount}, got {amount}")
             return {"code": 11}
         
         # Всё ок
@@ -102,8 +141,7 @@ async def webhook_pay(
     Вызывается после успешного платежа
     https://developers.cloudpayments.ru/#pay
     """
-    body = await request.body()
-    data_str = body.decode('utf-8')
+    data_str, data = await _parse_webhook_data(request)
     
     # Проверяем подпись
     if not verify_signature(data_str, content_hmac):
@@ -111,8 +149,6 @@ async def webhook_pay(
         return {"code": 13}
     
     try:
-        data = json.loads(data_str)
-        
         account_id = data.get("AccountId")
         invoice_id = data.get("InvoiceId")
         transaction_id = data.get("TransactionId")
@@ -191,8 +227,7 @@ async def webhook_fail(
     Fail notification - неудачная оплата
     https://developers.cloudpayments.ru/#fail
     """
-    body = await request.body()
-    data_str = body.decode('utf-8')
+    data_str, data = await _parse_webhook_data(request)
     
     # Проверяем подпись
     if not verify_signature(data_str, content_hmac):
@@ -200,8 +235,6 @@ async def webhook_fail(
         return {"code": 0}
     
     try:
-        data = json.loads(data_str)
-        
         account_id = data.get("AccountId")
         invoice_id = data.get("InvoiceId")
         reason = data.get("Reason", "Unknown error")
@@ -234,8 +267,7 @@ async def webhook_recurrent(
     Вызывается при автоматическом списании по подписке
     https://developers.cloudpayments.ru/#recurrent
     """
-    body = await request.body()
-    data_str = body.decode('utf-8')
+    data_str, data = await _parse_webhook_data(request)
     
     # Проверяем подпись
     if not verify_signature(data_str, content_hmac):
@@ -243,8 +275,6 @@ async def webhook_recurrent(
         return {"code": 0}
     
     try:
-        data = json.loads(data_str)
-        
         account_id = data.get("AccountId")
         transaction_id = data.get("TransactionId")
         amount = data.get("Amount")
@@ -291,8 +321,7 @@ async def webhook_refund(
     Refund notification - возврат
     https://developers.cloudpayments.ru/#refund
     """
-    body = await request.body()
-    data_str = body.decode('utf-8')
+    data_str, data = await _parse_webhook_data(request)
     
     # Проверяем подпись
     if not verify_signature(data_str, content_hmac):
@@ -300,8 +329,6 @@ async def webhook_refund(
         return {"code": 0}
     
     try:
-        data = json.loads(data_str)
-        
         account_id = data.get("AccountId")
         invoice_id = data.get("InvoiceId")
         amount = data.get("Amount")
