@@ -19,6 +19,7 @@ from backend.services.cloudpayments import (
     create_receipt,
     create_receipt_item,
 )
+from backend.services.tochka import get_tochka_client
 from backend.services.subscription import get_subscription_service, PLANS
 
 router = APIRouter(prefix="/api/payments", tags=["payments"])
@@ -91,7 +92,7 @@ async def create_pack_payment(request: PackPurchaseRequest):
 async def create_payment_url(request: PackPurchaseRequest):
     """
     Создание платёжной ссылки для бота (inline-кнопки).
-    Возвращает URL страницы CloudPayments с выбором способа оплаты (карта, СБП, Mir Pay).
+    Возвращает URL платёжной страницы (Точка эквайринг) с выбором способа оплаты.
     """
     pack = next((p for p in GENERATION_PACKS if p["id"] == request.pack_id), None)
     if not pack:
@@ -110,39 +111,21 @@ async def create_payment_url(request: PackPurchaseRequest):
         payment_method="card",
     )
 
-    receipt_items = [
-        create_receipt_item(
-            label=f"Энергия {pack['energy']}⚡",
-            price=pack["price"],
-            quantity=1.0,
-            vat=0,
-            object_type=4
-        )
-    ]
-    receipt = create_receipt(
-        items=receipt_items,
-        email=user.get("username", f"{request.telegram_id}@telegram.user"),
-        taxation_system=1,
-    )
-
-    cp_client = get_cloudpayments_client()
     try:
-        order = await cp_client.create_order(
-            amount=pack["price"],
-            currency=pack["currency"],
-            description=f"Покупка энергии {pack['energy']}⚡",
-            invoice_id=payment["id"],
-            account_id=str(request.telegram_id),
-            email=user.get("username", f"{request.telegram_id}@telegram.user"),
-            receipt=receipt,
+        tochka = get_tochka_client()
+        result = await tochka.create_payment_link(
+            amount_rub=float(pack["price"]),
+            purpose=f"Покупка энергии {pack['energy']}⚡",
+            payment_link_id=payment["id"],
+            payment_modes=["card", "sbp"],
         )
     except Exception as e:
-        logger.error(f"Failed to create CloudPayments order: {e}")
+        logger.error(f"Failed to create Tochka payment link: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to create payment: {str(e)}")
 
-    payment_url = order.get("Url")
+    payment_url = result.get("paymentLink")
     if not payment_url:
-        logger.error("CloudPayments order created but no Url in response")
+        logger.error("Tochka payment created but no paymentLink in response")
         raise HTTPException(status_code=500, detail="Failed to get payment URL")
 
     logger.info(f"Payment URL created: {payment['id']}, user: {request.telegram_id}, pack: {request.pack_id}")

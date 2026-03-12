@@ -18,7 +18,8 @@ RUN pip install --no-cache-dir \
     google-cloud-secret-manager==2.18.1 \
     httpx==0.26.0 \
     python-multipart==0.0.9 \
-    aiohttp==3.9.3
+    aiohttp==3.9.3 \
+    "PyJWT[crypto]==2.8.0"
 
 # Copy backend code (only the backend folder from repo root)
 COPY backend/ ./backend/

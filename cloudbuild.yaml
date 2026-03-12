@@ -118,7 +118,7 @@ steps:
       - '--set-env-vars'
       - 'GCP_PROJECT_ID=$PROJECT_ID'
       - '--set-secrets'
-      - 'CLOUDPAYMENTS_PUBLIC_ID=cloudpayments-public-id:latest,CLOUDPAYMENTS_API_SECRET=cloudpayments-api-secret:latest,BOT_TOKEN=telegram-bot-token:latest'
+      - 'TOCHKA_CLIENT_ID=tochka-client-id:latest,TOCHKA_CLIENT_SECRET=tochka-client-secret:latest,TOCHKA_CUSTOMER_CODE=tochka-customer-code:latest,TOCHKA_MERCHANT_ID=tochka-merchant-id:latest,BOT_TOKEN=telegram-bot-token:latest'
       - '--allow-unauthenticated'
     waitFor: ['push-api']
 

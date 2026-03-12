@@ -340,6 +340,8 @@ async def create_payment(
         "amount": amount,
         "currency": currency,
         "status": "pending",
+        "transaction_id": None,
+        # legacy field (CloudPayments), kept for backwards compatibility
         "cloudpayments_transaction_id": None,
         "payment_method": payment_method,  # card | sbp
         "receipt_url": None,
@@ -374,6 +376,7 @@ async def update_payment_status(
     }
     
     if transaction_id:
+        update_data["transaction_id"] = transaction_id
         update_data["cloudpayments_transaction_id"] = transaction_id
     if receipt_url:
         update_data["receipt_url"] = receipt_url

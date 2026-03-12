@@ -5,6 +5,7 @@ import os
 
 from backend.routers import styles_router, users_router, payments_router, generate_router
 from backend.routers.webhooks import router as webhooks_router
+from backend.routers.webhooks_tochka import router as tochka_webhooks_router
 from backend.routers.cron import router as cron_router
 
 
@@ -29,6 +30,7 @@ app.include_router(users_router)
 app.include_router(payments_router)
 app.include_router(generate_router)
 app.include_router(webhooks_router)
+app.include_router(tochka_webhooks_router)
 app.include_router(cron_router)
 
 # Статические файлы для изображений стилей
