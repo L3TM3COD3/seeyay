@@ -70,21 +70,21 @@ async def _send_payment_message(callback: CallbackQuery, pack_id: str, label: st
     price_val = price if price is not None else None
 
     if energy_val is None or price_val is None:
-        # Попробуем вытащить из label вида \"10⚡ за 249₽\"
+        # Попробуем вытащить из label вида "10⚡ за 249₽"
         try:
             parts = label.split(" за ")
             energy_val = int(parts[0].split("⚡")[0])
             price_val = int(parts[1].split("₽")[0])
         except Exception:
-            logger.warning(f\"Failed to parse energy/price from label '{label}' for pack {pack_id}\")
+            logger.warning(f"Failed to parse energy/price from label '{label}' for pack {pack_id}")
             energy_val = 0
             price_val = 0
 
     text = m15_payment_confirm(energy=energy_val, price=price_val)
     kb = kb_payment_confirm(payment_url=payment_url, payment_id=payment_id)
 
-    await callback.message.answer(text=text, reply_markup=kb, parse_mode=\"HTML\")
-    logger.info(f\"User {telegram_id} opened payment for {pack_id}, payment_id={payment_id}\")
+    await callback.message.answer(text=text, reply_markup=kb, parse_mode="HTML")
+    logger.info(f"User {telegram_id} opened payment for {pack_id}, payment_id={payment_id}")
 
 
 @router.callback_query(F.data.startswith("buy_pack:"))
@@ -110,19 +110,19 @@ async def handle_buy_downsell(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("cancel_payment:"))
 async def handle_cancel_payment(callback: CallbackQuery):
     """
-    Обработчик кнопки \"Отмена\" в m15.
+    Обработчик кнопки "Отмена" в m15.
     По ТЗ: сообщение должно превратиться в m16 (платёж отменён) с кнопками повторной покупки.
     """
-    await callback.answer(\"Платёж отменён\")  # краткий toast
+    await callback.answer("Платёж отменён")  # краткий toast
 
     # Превращаем текущее сообщение в m16
     text = m16_payment_cancelled()
     # Повторные пакеты и \"Главное меню\" можно дать как в m11 (kb_insufficient),
     # но здесь просто оставляем кнопки из исходного сообщения или можно удалить клавиатуру.
     try:
-        await callback.message.edit_text(text=text, parse_mode=\"HTML\")
+        await callback.message.edit_text(text=text, parse_mode="HTML")
     except Exception:
-        await callback.message.answer(text, parse_mode=\"HTML\")
+        await callback.message.answer(text, parse_mode="HTML")
 
 
 @router.callback_query(F.data == "show_menu")

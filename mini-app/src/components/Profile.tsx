@@ -5,7 +5,6 @@ import { useTelegram } from '../hooks/useTelegram';
 interface ProfileProps {
   user: User;
   onEnergyClick: () => void;
-  onPaymentSuccess?: () => void;
 }
 
 // Данные пакетов по умолчанию
@@ -16,7 +15,7 @@ const defaultPacks: GenerationPack[] = [
   { id: 'pack_300', energy: 300, price: 2490, currency: 'RUB' },
 ];
 
-export function Profile({ user, onEnergyClick, onPaymentSuccess }: ProfileProps) {
+export function Profile({ user, onEnergyClick }: ProfileProps) {
   const [packs, setPacks] = useState<GenerationPack[]>(defaultPacks);
   const { hapticFeedback, user: tgUser } = useTelegram();
 
