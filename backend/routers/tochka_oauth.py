@@ -19,11 +19,7 @@ import aiohttp
 from fastapi import APIRouter, HTTPException, Query
 
 from backend.firestore import set_tochka_refresh_token
-from backend.services.tochka import (
-    TOCHKA_API_BASE,
-    TOCHKA_TOKEN_URL,
-    get_tochka_client,
-)
+from backend.services.tochka import TOCHKA_API_BASE, TOCHKA_TOKEN_URL, get_tochka_client
 
 logger = logging.getLogger(__name__)
 
@@ -60,8 +56,29 @@ async def start_oauth() -> Dict[str, Any]:
     tochka = get_tochka_client()
     creds = tochka._get_credentials()
 
-    # Create consent using client_credentials (works even before authorization).
-    token = await tochka.get_client_credentials_token(scope="ManageWebhookData")
+    # Create consent using client_credentials (per Tochka docs).
+    payload = {
+        "client_id": creds.client_id,
+        "client_secret": creds.client_secret,
+        "grant_type": "client_credentials",
+        "scope": "ManageWebhookData",
+    }
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            TOCHKA_TOKEN_URL,
+            data=payload,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        ) as resp:
+            raw = await resp.text()
+            if resp.status != 200:
+                logger.error(f"Tochka client_credentials failed: status={resp.status} body={raw[:2000]!r}")
+                raise HTTPException(status_code=500, detail="Failed to get Tochka tech token")
+            token_data = json.loads(raw)
+
+    token = token_data.get("access_token")
+    if not token:
+        raise HTTPException(status_code=500, detail="Tochka token response missing access_token")
 
     consent_payload = {
         "Data": {
@@ -148,11 +165,30 @@ async def oauth_redirect_handler(
                 raise HTTPException(status_code=500, detail="Failed to exchange Tochka code")
             data = json.loads(raw)
 
+    access_token = data.get("access_token")
     refresh_token = data.get("refresh_token")
     if not refresh_token:
         raise HTTPException(status_code=500, detail="Tochka token response missing refresh_token")
+    if not access_token:
+        raise HTTPException(status_code=500, detail="Tochka token response missing access_token")
 
-    await set_tochka_refresh_token(refresh_token)
+    # Obtain Access Token Hybrid via introspect.
+    introspect_payload = {
+        "access_token": access_token,
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            "https://enter.tochka.com/connect/introspect",
+            data=introspect_payload,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        ) as resp:
+            raw = (await resp.text()).strip()
+            if resp.status != 200:
+                logger.error(f"Tochka introspect failed: status={resp.status} body={raw[:2000]!r}")
+                raise HTTPException(status_code=500, detail="Failed to obtain Tochka Access Token Hybrid")
+            hybrid = raw.strip().strip('"')
+
+    await set_tochka_refresh_token(refresh_token, hybrid_token=hybrid)
 
     # Configure webhook immediately.
     webhook_url = "https://seeyay-ai-api-445810320877.europe-west4.run.app/api/webhooks/tochka/acquiringInternetPayment"
@@ -164,4 +200,15 @@ async def oauth_redirect_handler(
         webhook_configured = False
 
     return {"ok": True, "state": state, "webhook_configured": webhook_configured}
+
+
+@router.post("/configure-webhook")
+async def configure_webhook_manual() -> Dict[str, Any]:
+    """
+    Manually (re)configure acquiringInternetPayment webhook after OAuth is completed.
+    """
+    tochka = get_tochka_client()
+    webhook_url = "https://seeyay-ai-api-445810320877.europe-west4.run.app/api/webhooks/tochka/acquiringInternetPayment"
+    await tochka.upsert_webhook(url=webhook_url, webhook_types=["acquiringInternetPayment"])
+    return {"ok": True, "url": webhook_url}
 
