@@ -20,13 +20,16 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 import aiohttp
+import jwt
 
 from backend.secrets import get_secret
+from backend.firestore import get_tochka_refresh_token
 
 logger = logging.getLogger(__name__)
 
 
 TOCHKA_TOKEN_URL = "https://enter.tochka.com/connect/token"
+TOCHKA_INTROSPECT_URL = "https://enter.tochka.com/connect/introspect"
 TOCHKA_API_BASE = "https://enter.tochka.com/uapi"
 TOCHKA_PAYMENTS_PATH = "/acquiring/v1.0/payments"
 TOCHKA_WEBHOOK_PATH_TEMPLATE = "/webhook/v1.0/{client_id}"
@@ -50,8 +53,11 @@ class TochkaCredentials:
 class TochkaClient:
     def __init__(self):
         self._creds: Optional[TochkaCredentials] = None
-        self._access_token: Optional[str] = None
-        self._access_token_exp: float = 0.0
+        self._oauth_access_token: Optional[str] = None
+        self._oauth_access_token_exp: float = 0.0
+        self._uapi_bearer_token: Optional[str] = None  # Access Token Hybrid (JWT)
+        self._uapi_bearer_token_exp: float = 0.0
+        self._refresh_token: Optional[str] = None
 
     def _get_credentials(self) -> TochkaCredentials:
         if self._creds is None:
@@ -63,24 +69,18 @@ class TochkaClient:
             )
         return self._creds
 
-    async def get_access_token(self) -> str:
+    async def get_client_credentials_token(self, scope: str) -> str:
         """
-        OAuth2 client_credentials.
-
-        The token endpoint uses application/x-www-form-urlencoded.
+        OAuth2 client_credentials token.
+        Used for consent management (pre-authorization).
         """
-        # 30s safety window
-        if self._access_token and (time.time() + 30) < self._access_token_exp:
-            return self._access_token
-
         creds = self._get_credentials()
 
         payload = {
             "client_id": creds.client_id,
             "client_secret": creds.client_secret,
             "grant_type": "client_credentials",
-            # Request only the scopes we need for payment links + webhooks.
-            "scope": "MakeAcquiringOperation ReadAcquiringData ReadCustomerData ManageWebhookData",
+            "scope": scope,
         }
 
         async with aiohttp.ClientSession() as session:
@@ -98,11 +98,101 @@ class TochkaClient:
         token = data.get("access_token")
         if not token:
             raise Exception("Tochka token response missing access_token")
+        return token
+
+    async def _get_refresh_token(self) -> str:
+        if self._refresh_token:
+            return self._refresh_token
+
+        # Prefer env var (can be set manually later), otherwise Firestore.
+        env = os.getenv("TOCHKA_REFRESH_TOKEN")
+        if env:
+            self._refresh_token = env.strip()
+            return self._refresh_token
+
+        rt = await get_tochka_refresh_token()
+        if rt:
+            self._refresh_token = rt
+            return rt
+
+        raise Exception("Tochka OAuth is not authorized yet (missing refresh_token)")
+
+    async def _get_oauth_access_token(self) -> str:
+        """
+        Uses refresh_token flow to get a short-lived OAuth access token.
+        """
+        if self._oauth_access_token and (time.time() + 30) < self._oauth_access_token_exp:
+            return self._oauth_access_token
+
+        creds = self._get_credentials()
+        refresh_token = await self._get_refresh_token()
+
+        payload = {
+            "client_id": creds.client_id,
+            "client_secret": creds.client_secret,
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+        }
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                TOCHKA_TOKEN_URL,
+                data=payload,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            ) as resp:
+                raw = await resp.text()
+                if resp.status != 200:
+                    logger.error(f"Tochka refresh token request failed: status={resp.status} body={raw[:2000]!r}")
+                    raise Exception(f"Tochka refresh token request failed (status {resp.status})")
+                data = json.loads(raw)
+
+        token = data.get("access_token")
+        if not token:
+            raise Exception("Tochka refresh token response missing access_token")
 
         expires_in = float(data.get("expires_in", 3600))
-        self._access_token = token
-        self._access_token_exp = time.time() + expires_in
+        self._oauth_access_token = token
+        self._oauth_access_token_exp = time.time() + expires_in
         return token
+
+    async def get_uapi_bearer_token(self) -> str:
+        """
+        Tochka APIs expect 'Access Token Hybrid' (JWT) in Authorization header.
+
+        We obtain it via /connect/introspect using the OAuth access_token.
+        """
+        if self._uapi_bearer_token and (time.time() + 30) < self._uapi_bearer_token_exp:
+            return self._uapi_bearer_token
+
+        access_token = await self._get_oauth_access_token()
+
+        payload = {"access_token": access_token}
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                TOCHKA_INTROSPECT_URL,
+                data=payload,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            ) as resp:
+                raw = (await resp.text()).strip()
+                if resp.status != 200:
+                    logger.error(f"Tochka introspect failed: status={resp.status} body={raw[:2000]!r}")
+                    raise Exception(f"Tochka introspect failed (status {resp.status})")
+                # Redoc shows response as a JSON string containing JWT (sometimes quoted)
+                hybrid = raw.strip().strip('"')
+
+        # Cache based on JWT exp if present
+        exp_ts = 0.0
+        try:
+            decoded = jwt.decode(hybrid, options={"verify_signature": False})
+            exp = decoded.get("exp")
+            if exp:
+                exp_ts = float(exp)
+        except Exception:
+            exp_ts = 0.0
+
+        self._uapi_bearer_token = hybrid
+        self._uapi_bearer_token_exp = exp_ts if exp_ts else (time.time() + 3600)
+        return hybrid
 
     async def create_payment_link(
         self,
@@ -121,7 +211,7 @@ class TochkaClient:
         Uses Create Payment Operation: POST /acquiring/v1.0/payments
         Request schema (per OpenAPI): {\"Data\": {...}}
         """
-        token = await self.get_access_token()
+        token = await self.get_uapi_bearer_token()
         creds = self._get_credentials()
 
         data_model: Dict[str, Any] = {
@@ -166,7 +256,7 @@ class TochkaClient:
 
         Endpoint (per OpenAPI): GET /acquiring/v1.0/payments/{operationId}
         """
-        token = await self.get_access_token()
+        token = await self.get_uapi_bearer_token()
         creds = self._get_credentials()
 
         url = f"{TOCHKA_API_BASE}{TOCHKA_PAYMENTS_PATH}/{operation_id}"
@@ -196,7 +286,7 @@ class TochkaClient:
         Endpoint (per OpenAPI):
         PUT/POST/GET/DELETE /webhook/v1.0/{client_id}
         """
-        token = await self.get_access_token()
+        token = await self.get_uapi_bearer_token()
         creds = self._get_credentials()
 
         path = TOCHKA_WEBHOOK_PATH_TEMPLATE.format(client_id=creds.client_id)

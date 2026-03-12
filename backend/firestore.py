@@ -627,3 +627,34 @@ async def get_users_for_delayed_messages() -> Dict[str, List[Dict[str, Any]]]:
                     results["m12"].append(data)
     
     return results
+
+
+# ==================== App Config (Tochka OAuth) ====================
+
+_TOCHKA_OAUTH_DOC = ("app_config", "tochka_oauth")
+
+
+async def set_tochka_refresh_token(refresh_token: str) -> None:
+    """Persist Tochka OAuth refresh_token for refresh_token grant."""
+    db = get_db()
+    col, doc_id = _TOCHKA_OAUTH_DOC
+    doc_ref = db.collection(col).document(doc_id)
+    await doc_ref.set(
+        {
+            "refresh_token": refresh_token,
+            "updated_at": datetime.utcnow(),
+        },
+        merge=True,
+    )
+
+
+async def get_tochka_refresh_token() -> Optional[str]:
+    """Load Tochka OAuth refresh_token if present."""
+    db = get_db()
+    col, doc_id = _TOCHKA_OAUTH_DOC
+    doc = await db.collection(col).document(doc_id).get()
+    if not doc.exists:
+        return None
+    data = doc.to_dict() or {}
+    token = data.get("refresh_token")
+    return token.strip() if isinstance(token, str) and token.strip() else None
